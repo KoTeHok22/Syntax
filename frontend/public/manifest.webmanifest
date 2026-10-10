@@ -1,0 +1,15 @@
+{
+  "name": "syntax — Платформа обратного найма ПВН",
+  "short_name": "syntax",
+  "description": "Платформа обратного найма ПВН: подтверждаемость навыков и ранжирование кандидатов внутри категории.",
+  "lang": "ru",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#EFEBE3",
+  "theme_color": "#402FFF",
+  "icons": [
+    { "src": "/favicon-192x192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/favicon-512x512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/favicon-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -1,0 +1,408 @@
+import { get, patch, post, put, postMultipart } from './client'
+
+export function anonymousCandidateId(profileId: number): string {
+  return `#${profileId.toString(16).toUpperCase().padStart(4, '0')}`
+}
+
+export interface ScoreComponent {
+  label: string
+  value: number
+  weight: number
+}
+
+export interface PvnAchievement {
+  type: string
+  level: string
+  date: string
+  score: number
+}
+
+export interface CandidateCard {
+  candidate_profile_id: number
+  grade: string
+  specialization: string
+  stack: string[]
+  score: number
+  score_breakdown: Record<string, ScoreComponent>
+  has_pvn_history: boolean
+  pvn_achievements: PvnAchievement[]
+  match_relevance: number
+  final_score: number
+  match_breakdown?: {
+    stack: number
+    semantic: number | null
+    mode: 'semantic' | 'lexical'
+    stack_weight: number
+    semantic_weight: number
+    relevance: number
+  }
+}
+
+export interface Category {
+  id: number
+  specialization: string
+  grade: string
+  candidate_count: number
+}
+
+export interface CategoryPage {
+  total: number
+  items: Category[]
+}
+
+export interface Domain {
+  id: number
+  slug: string
+  title: string
+  aliases: string[]
+  candidate_count: number
+  score: number
+}
+
+export interface DomainPage {
+  total: number
+  items: Domain[]
+}
+
+export function fetchDomains(
+  params: { q?: string; skip?: number; limit?: number } = {},
+): Promise<DomainPage> {
+  const query = new URLSearchParams()
+  if (params.q) query.set('q', params.q)
+  if (params.skip !== undefined) query.set('skip', String(params.skip))
+  if (params.limit !== undefined) query.set('limit', String(params.limit))
+  const suffix = query.toString().length > 0 ? `?${query.toString()}` : ''
+  return get(`/employer/domains${suffix}`)
+}
+
+export function createDomain(payload: { title: string; aliases?: string[] }): Promise<Domain> {
+  return post('/employer/domains', payload)
+}
+
+export function fetchCategories(
+  params: { q?: string; specialization?: string; grade?: string; skip?: number; limit?: number } = {},
+): Promise<CategoryPage> {
+  const query = new URLSearchParams()
+  if (params.q) query.set('q', params.q)
+  if (params.specialization) query.set('specialization', params.specialization)
+  if (params.grade) query.set('grade', params.grade)
+  if (params.skip !== undefined) query.set('skip', String(params.skip))
+  if (params.limit !== undefined) query.set('limit', String(params.limit))
+  const suffix = query.toString().length > 0 ? `?${query.toString()}` : ''
+  return get(`/employer/categories${suffix}`)
+}
+
+export interface CardFilters {
+  stack?: string[]
+  has_pvn?: boolean
+  min_score?: number
+  skip?: number
+  limit?: number
+  q?: string
+}
+
+function buildFiltersQuery(filters: CardFilters): URLSearchParams {
+  const query = new URLSearchParams()
+  filters.stack?.forEach((item) => query.append('stack', item))
+  if (filters.has_pvn !== undefined) query.set('has_pvn', String(filters.has_pvn))
+  if (filters.min_score !== undefined) query.set('min_score', String(filters.min_score))
+  if (filters.q) query.set('q', filters.q)
+  if (filters.skip !== undefined) query.set('skip', String(filters.skip))
+  if (filters.limit !== undefined) query.set('limit', String(filters.limit))
+  return query
+}
+
+export function fetchCategoryCards(categoryId: number, filters: CardFilters = {}): Promise<CandidateCard[]> {
+  const query = buildFiltersQuery(filters)
+  const suffix = query.size > 0 ? `?${query.toString()}` : ''
+  return get(`/employer/categories/${categoryId}/cards${suffix}`)
+}
+
+export function searchCandidates(
+  filters: CardFilters & { specialization?: string; grade?: string; vacancy_id?: number },
+  signal?: AbortSignal,
+): Promise<CandidateCard[]> {
+  const query = buildFiltersQuery(filters)
+  if (filters.specialization) query.set('specialization', filters.specialization)
+  if (filters.grade) query.set('grade', filters.grade)
+  if (filters.vacancy_id !== undefined) query.set('vacancy_id', String(filters.vacancy_id))
+  const suffix = query.size > 0 ? `?${query.toString()}` : ''
+  return get(`/employer/search${suffix}`, signal === undefined ? {} : { signal })
+}
+
+export interface Invitation {
+  id: number
+  candidate_profile_id: number
+  candidate_grade: string | null
+  candidate_specialization: string | null
+  candidate_stack: string[]
+  message: string | null
+  salary_from: number
+  salary_to: number
+  company_name: string | null
+  contact_method: string | null
+  status: 'sent' | 'viewed' | 'accepted' | 'rejected' | 'withdrawn'
+  candidate_contacts: Record<string, string> | null
+}
+
+export interface CreateInvitationPayload {
+  candidate_profile_id: number
+  message: string
+  salary_from: number
+  salary_to: number
+  company_name: string
+  contact_method: string
+}
+
+export type UpdateInvitationPayload = Omit<CreateInvitationPayload, 'candidate_profile_id'>
+
+export function createInvitation(payload: CreateInvitationPayload): Promise<Invitation> {
+  return post('/invitations', payload)
+}
+
+export function updateInvitation(id: number, payload: UpdateInvitationPayload): Promise<Invitation> {
+  return patch(`/invitations/${id}`, payload)
+}
+
+export function withdrawInvitation(id: number): Promise<Invitation> {
+  return post(`/invitations/${id}/withdraw`)
+}
+
+export function fetchIncomingInvitations(): Promise<Invitation[]> {
+  return get('/invitations/incoming')
+}
+
+export function fetchSentInvitations(): Promise<Invitation[]> {
+  return get('/invitations/sent')
+}
+
+export function viewInvitation(id: number): Promise<Invitation> {
+  return post(`/invitations/${id}/view`)
+}
+
+export function acceptInvitation(id: number): Promise<Invitation> {
+  return post(`/invitations/${id}/accept`)
+}
+
+export function rejectInvitation(id: number): Promise<Invitation> {
+  return post(`/invitations/${id}/reject`)
+}
+
+export interface Vacancy {
+  id: number
+  title: string
+  description: string | null
+  stack: string[]
+  specialization: string | null
+  grade: string | null
+  salary_from: number
+  salary_to: number
+  is_open: boolean
+}
+
+type VacancyApiPayload = Omit<Vacancy, 'is_open'> & { status?: string; is_open?: boolean }
+
+function normalizeVacancy(raw: VacancyApiPayload): Vacancy {
+  return { ...raw, is_open: raw.is_open ?? raw.status === 'open' }
+}
+
+export interface CreateVacancyPayload {
+  title: string
+  description: string
+  stack: string[]
+  specialization: string
+  grade: string
+  salary_from: number
+  salary_to: number
+}
+
+export function createVacancy(payload: CreateVacancyPayload): Promise<Vacancy> {
+  return post<VacancyApiPayload>('/vacancies', payload).then(normalizeVacancy)
+}
+
+export function fetchVacancies(params: { grade?: string; specialization?: string; skip?: number; limit?: number } = {}): Promise<Vacancy[]> {
+  const query = new URLSearchParams()
+  if (params.grade) query.set('grade', params.grade)
+  if (params.specialization) query.set('specialization', params.specialization)
+  if (params.skip !== undefined) query.set('skip', String(params.skip))
+  if (params.limit !== undefined) query.set('limit', String(params.limit))
+  const suffix = query.size > 0 ? `?${query.toString()}` : ''
+  return get<VacancyApiPayload[]>(`/vacancies${suffix}`).then((list) => list.map(normalizeVacancy))
+}
+
+export function closeVacancy(id: number): Promise<Vacancy> {
+  return post<VacancyApiPayload>(`/vacancies/${id}/close`).then(normalizeVacancy)
+}
+
+export interface Application {
+  id: number
+  vacancy_id: number
+  vacancy_title?: string | null
+  candidate_profile_id: number
+  message: string | null
+  status: 'new' | 'viewed' | 'accepted' | 'rejected'
+  ats_delivery_status?: 'pending' | 'failed' | 'delivered'
+  ats_delivery_attempts?: number
+  ats_delivery_error?: string | null
+  ats_delivered_at?: string | null
+  interview_at?: string | null
+  interview_duration?: number | null
+  interview_format?: 'video' | 'onsite' | 'phone' | null
+  interview_link?: string | null
+  interview_address?: string | null
+}
+
+export interface InterviewSchedulePayload {
+  scheduled_at: string
+  duration_minutes: number
+  format: 'video' | 'onsite' | 'phone'
+  link?: string | null
+  address?: string | null
+}
+
+export function scheduleInterview(id: number, payload: InterviewSchedulePayload): Promise<Application> {
+  return put(`/applications/${id}/interview`, payload)
+}
+
+export function createApplication(vacancyId: number, message: string): Promise<Application> {
+  return post('/applications', { vacancy_id: vacancyId, message })
+}
+
+export function fetchMyApplications(): Promise<Application[]> {
+  return get('/applications/my')
+}
+
+export function fetchIncomingApplications(): Promise<Application[]> {
+  return get('/applications/incoming')
+}
+
+export function updateApplicationStatus(id: number, status: Application['status']): Promise<Application> {
+  return put(`/applications/${id}/status`, { status })
+}
+
+export function uploadResume(file: File): Promise<{ applied: string[] }> {
+  const form = new FormData()
+  form.append('file', file)
+  return postMultipart('/candidates/me/resume', form)
+}
+
+export function downloadProfilePdf(): Promise<Blob> {
+  return get<Blob>('/candidates/me/profile.pdf')
+}
+
+export function fetchMyVacancies(params: { skip?: number; limit?: number } = {}, signal?: AbortSignal): Promise<Vacancy[]> {
+  const query = new URLSearchParams()
+  if (params.skip !== undefined) query.set('skip', String(params.skip))
+  if (params.limit !== undefined) query.set('limit', String(params.limit))
+  const suffix = query.size > 0 ? `?${query.toString()}` : ''
+  return get<VacancyApiPayload[]>(`/vacancies/my${suffix}`, signal === undefined ? {} : { signal }).then((list) => list.map(normalizeVacancy))
+}
+
+export function updateVacancy(id: number, payload: CreateVacancyPayload): Promise<Vacancy> {
+  return put<VacancyApiPayload>(`/vacancies/${id}`, payload).then(normalizeVacancy)
+}
+
+export interface CompanyOffice {
+  id: number
+  title: string
+  city: string
+  address: string
+  is_default: boolean
+}
+
+export interface CompanyOfficePayload {
+  title: string
+  city: string
+  address: string
+  is_default: boolean
+}
+
+export interface EmployerProfile {
+  id: number
+  company_name: string
+  description: string
+  contacts: Record<string, string>
+  offices: CompanyOffice[]
+  logo_data_url: string | null
+  logo_zoom: number
+  logo_offset_x: number
+  logo_offset_y: number
+}
+
+export interface EmployerProfilePayload {
+  company_name: string
+  description: string
+  contacts: Record<string, string>
+  offices?: CompanyOfficePayload[]
+  logo_data_url?: string | null
+  logo_zoom?: number
+  logo_offset_x?: number
+  logo_offset_y?: number
+}
+
+export function fetchEmployerProfile(): Promise<EmployerProfile> {
+  return get('/employers/me')
+}
+
+export function updateEmployerProfile(payload: EmployerProfilePayload): Promise<EmployerProfile> {
+  return put('/employers/me', payload)
+}
+
+export interface RegularTask {
+  id: number
+  statement: string
+  task_format: string
+  options: string[]
+  is_active: boolean
+  created_at: string
+}
+
+export type CreateRegularTaskPayload = { concept_id: number } | { statement: string; options: string[]; correct_index: number }
+
+export interface RegularTaskAnswerResult {
+  regular_task_id: number
+  is_correct: boolean
+}
+
+export interface RegularTaskSubmission {
+  id: number
+  regular_task_id: number
+  candidate_profile_id: number
+  is_correct: boolean
+  submitted_at: string
+}
+
+export interface Concept {
+  id: number
+  name: string
+  domain: string
+  grade: string
+}
+
+export function fetchConcepts(): Promise<Concept[]> {
+  return get('/concepts')
+}
+
+export function createRegularTask(payload: CreateRegularTaskPayload): Promise<RegularTask> {
+  return post('/regular-tasks', payload)
+}
+
+export function fetchActiveRegularTasks(): Promise<RegularTask[]> {
+  return get('/regular-tasks')
+}
+
+export function answerRegularTask(id: number, optionIndex: number): Promise<RegularTaskAnswerResult> {
+  return post(`/regular-tasks/${id}/answer`, { option_index: optionIndex })
+}
+
+export function fetchEmployerRegularTasks(): Promise<RegularTask[]> {
+  return get('/employer/regular-tasks')
+}
+
+export function fetchRegularTaskSubmissions(id: number): Promise<RegularTaskSubmission[]> {
+  return get(`/employer/regular-tasks/${id}/submissions`)
+}
+
+export function closeRegularTask(id: number): Promise<RegularTask> {
+  return post(`/employer/regular-tasks/${id}/close`)
+}

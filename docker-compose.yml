@@ -1,0 +1,101 @@
+name: syntax
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: syntax
+      POSTGRES_PASSWORD: syntax
+      POSTGRES_DB: syntax
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./scripts/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U syntax"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgresql+psycopg://syntax:syntax@db:5432/syntax
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:8000}
+      GRADE_COOLDOWN_MONTHS: ${GRADE_COOLDOWN_MONTHS:-3}
+      TASKS_PER_SESSION: ${TASKS_PER_SESSION:-5}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+      LLM_VISION_MODEL: ${LLM_VISION_MODEL:-}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-240}
+      EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-}
+      EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-}
+      EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-1024}
+      EMBEDDING_TIMEOUT_SECONDS: ${EMBEDDING_TIMEOUT_SECONDS:-10}
+      RERANK_MODEL: ${RERANK_MODEL:-}
+      RERANK_BASE_URL: ${RERANK_BASE_URL:-}
+      RERANK_API_KEY: ${RERANK_API_KEY:-}
+      RERANK_TIMEOUT_SECONDS: ${RERANK_TIMEOUT_SECONDS:-20}
+      RERANK_TOP_N: ${RERANK_TOP_N:-50}
+      PVN_OIDC_ISSUER: ${PVN_OIDC_ISSUER:-}
+      PVN_OIDC_AUDIENCE: ${PVN_OIDC_AUDIENCE:-}
+      PVN_OIDC_JWKS_URL: ${PVN_OIDC_JWKS_URL:-}
+      PVN_OIDC_ALGORITHMS: ${PVN_OIDC_ALGORITHMS:-["RS256"]}
+      PVN_OIDC_TRUSTED_CLIENT_IDS: ${PVN_OIDC_TRUSTED_CLIENT_IDS:-[]}
+      PVN_OIDC_ID_CLAIM: ${PVN_OIDC_ID_CLAIM:-}
+      PVN_OIDC_ACHIEVEMENTS_CLAIM: ${PVN_OIDC_ACHIEVEMENTS_CLAIM:-}
+      ATS_ALLOWED_WEBHOOK_URLS: ${ATS_ALLOWED_WEBHOOK_URLS:-[]}
+      ATS_TIMEOUT_SECONDS: ${ATS_TIMEOUT_SECONDS:-5}
+      ATS_WEBHOOK_SECRET: ${ATS_WEBHOOK_SECRET:-}
+      HTML_RENDER_ENABLED: ${HTML_RENDER_ENABLED:-true}
+      HTML_RENDER_TIMEOUT_SECONDS: ${HTML_RENDER_TIMEOUT_SECONDS:-30}
+      HTML_RENDER_VIEWPORT_WIDTH: ${HTML_RENDER_VIEWPORT_WIDTH:-390}
+      HTML_RENDER_VIEWPORT_HEIGHT: ${HTML_RENDER_VIEWPORT_HEIGHT:-650}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SEED_DEMO: ${SEED_DEMO:-0}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  seed:
+    profiles: ["seed"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["python", "-m", "scripts.seed_demo"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://syntax:syntax@db:5432/syntax
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+      EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-}
+      EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-}
+      EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-1024}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+volumes:
+  db_data:
