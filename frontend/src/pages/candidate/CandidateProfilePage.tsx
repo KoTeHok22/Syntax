@@ -7,7 +7,7 @@ import type { CandidateProfile } from '../../api/auth'
 import { useAuth } from '../../auth/AuthContext'
 import { fetchTestSessions } from '../../api/testing'
 import type { TestSession } from '../../api/testing'
-import { formatExperience, formatIsoDate, formatNumberInput, gradeLabel } from '../../lib/format'
+import { formatIsoDate, formatNumberInput, formatYears, gradeLabel } from '../../lib/format'
 import { LogoAvatar } from '../../components/LogoAvatar'
 import { LogoCropEditor } from '../../components/LogoCropEditor'
 import { Toast } from '../../components/Toast'
@@ -89,6 +89,11 @@ function formFromProfile(profile: CandidateProfile, fallbackEmail = ''): Profile
     phone: profile.contacts?.phone ?? '',
     pvn_id: profile.pvn_id ?? '',
   }
+}
+
+function experienceLabel(value: number | null | undefined): string {
+  if (value === null || value === undefined || value === 0) return '—'
+  return formatYears(value)
 }
 
 function anonymousId(profileId: number): string {
@@ -606,7 +611,7 @@ export function CandidateProfilePage() {
                 <div className="grid grid-cols-1 gap-x-8 gap-y-2 md:grid-cols-2">
                   <div className="flex items-center justify-between gap-3 border-b border-ink/10 py-2.5">
                     <span className="label-cap">Опыт</span>
-                    <span className="font-mono text-[13px] font-semibold text-ink">{formatExperience(profile.years_of_experience)}</span>
+                    <span className="font-mono text-[13px] font-semibold text-ink">{experienceLabel(profile.years_of_experience)}</span>
                   </div>
                   <div className="flex items-center justify-between gap-3 border-b border-ink/10 py-2.5">
                     <span className="label-cap">Город</span>
@@ -756,8 +761,8 @@ export function CandidateProfilePage() {
                     {sessions.map((item) => {
                       const passed = typeof item.result_score === 'number' && item.verdict !== 'suggest_lower'
                       return (
-                        <div className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0" key={item.id}>
-                          <div className="flex flex-col">
+                        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-3 first:pt-0 last:pb-0" key={item.id}>
+                          <div className="flex min-w-0 flex-col">
                             <span className="font-mono text-[13px] font-semibold uppercase tracking-wider text-ink">{gradeLabel(item.grade)}</span>
                             <span className="font-sans text-caption text-ink-secondary">
                               {item.status === 'completed'
@@ -765,11 +770,11 @@ export function CandidateProfilePage() {
                                 : 'В процессе · незавершённый тест'}
                             </span>
                           </div>
-                          <div className="flex items-center gap-4">
+                          <div className="flex shrink-0 items-center gap-3 sm:gap-4">
                             {typeof item.result_score === 'number' ? (
-                              <span className={`font-mono text-[15px] font-bold ${passed ? 'text-good-ink' : 'text-pvn-red-ink'}`}>{item.result_score} / 100</span>
+                              <span className={`shrink-0 whitespace-nowrap font-mono text-[15px] font-bold ${passed ? 'text-good-ink' : 'text-pvn-red-ink'}`}>{item.result_score} / 100</span>
                             ) : null}
-                            <span className={`stat-pill ${item.status === 'completed' ? 'bg-good/15 text-good-ink' : 'bg-pvn-blue/10 text-pvn-blue'}`}>
+                            <span className={`stat-pill shrink-0 whitespace-nowrap ${item.status === 'completed' ? 'bg-good/15 text-good-ink' : 'bg-pvn-blue/10 text-pvn-blue'}`}>
                               {item.status === 'completed' ? 'Завершена' : 'В процессе'}
                             </span>
                           </div>
@@ -881,7 +886,7 @@ export function CandidateProfilePage() {
               </div>
               <div className="flex flex-col gap-2">
                 <span className="label-cap">Опыт</span>
-                <span className="font-mono text-[13px] font-semibold text-ink">{formatExperience(profile.years_of_experience)}</span>
+                <span className="font-mono text-[13px] font-semibold text-ink">{experienceLabel(profile.years_of_experience)}</span>
                 <span className="font-mono text-[13px] font-semibold text-ink">
                   {[profile.city.trim(), workFormatLabel(profile.work_format)].filter((part) => part.length > 0).join(' · ') || 'Город и формат не указаны'}
                 </span>

@@ -419,18 +419,18 @@ export function CandidateTestingPage() {
                 {history.map((item) => {
                   const statusConfig = sessionStatus(item.status)
                   return (
-                    <div className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0" key={item.id}>
-                      <div className="flex flex-col">
+                    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-3 first:pt-0 last:pb-0" key={item.id}>
+                      <div className="flex min-w-0 flex-col">
                         <span className="font-mono text-[13px] font-semibold uppercase tracking-wider text-ink">{item.grade}</span>
                         <span className="font-sans text-caption text-ink-secondary">{item.task_count} {questionsLabel(item.task_count)}</span>
                       </div>
-                      <div className="flex items-center gap-4">
+                      <div className="flex shrink-0 items-center gap-3 sm:gap-4">
                         {typeof item.result_score === 'number' ? (
-                          <span className="font-mono text-[15px] font-bold text-pvn-blue">{item.result_score} / 100</span>
+                          <span className="shrink-0 whitespace-nowrap font-mono text-[15px] font-bold text-pvn-blue">{item.result_score} / 100</span>
                         ) : null}
-                        <span className={`stat-pill ${statusConfig.pill}`}>{statusConfig.label}</span>
+                        <span className={`stat-pill shrink-0 whitespace-nowrap ${statusConfig.pill}`}>{statusConfig.label}</span>
                         {item.status === 'completed' ? (
-                          <button className="btn-ghost py-1.5 text-[13px]" disabled={reviewLoading} onClick={() => void openReview(item.id)} type="button">
+                          <button className="btn-ghost shrink-0 py-1.5 text-[13px]" disabled={reviewLoading} onClick={() => void openReview(item.id)} type="button">
                             Посмотреть
                           </button>
                         ) : null}
@@ -578,7 +578,11 @@ export function CandidateTestingPage() {
             </div>
           </div>
           )}
-          <span className="font-mono text-[12px] text-ink-muted">Ответ сохранится автоматически · без таймера</span>
+          <span className="font-mono text-[12px] text-ink-muted">
+            {remainingSeconds !== null
+              ? 'Ответ сохраняется автоматически; по истечении таймера тест завершится и ответы отправятся автоматически'
+              : 'Ответ сохраняется автоматически при выборе варианта'}
+          </span>
         </div>
       ) : null}
 
