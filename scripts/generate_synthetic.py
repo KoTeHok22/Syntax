@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from backend.auth.security import hash_password
 from backend.core.categorization import assign_category
-from backend.core.testing import adaptive_verdict, result_score
+from backend.core.testing import VERDICT_SUGGEST_LOWER, adaptive_verdict, result_score
 from backend.db import Base, SessionLocal, engine, ensure_vector_extension
 from backend.models import (
     Application,
@@ -124,6 +124,12 @@ def create_demo_users(db: Session, count: int, rng: random.Random) -> int:
     return created
 
 
+def confirm_grade_from_verdict(profile: CandidateProfile, verdict: str | None, completed_at: datetime) -> None:
+    if verdict == VERDICT_SUGGEST_LOWER:
+        return
+    profile.grade_confirmed_at = completed_at
+
+
 def create_history(db: Session, profile: CandidateProfile, grade: str, rng: random.Random) -> None:
     ability = min(0.95, max(0.15, ABILITY_BY_GRADE[grade] + rng.uniform(-0.25, 0.2)))
     pool = (
@@ -144,6 +150,7 @@ def create_history(db: Session, profile: CandidateProfile, grade: str, rng: rand
     selected = grade_pool[:5]
     if len(selected) == 0:
         completed_at = datetime.now(timezone.utc) - timedelta(days=rng.randint(10, 120))
+        verdict = adaptive_verdict(0, 5)
         db.add(
             TestSession(
                 candidate_profile_id=profile.id,
@@ -151,11 +158,12 @@ def create_history(db: Session, profile: CandidateProfile, grade: str, rng: rand
                 task_count=0,
                 correct_count=0,
                 result_score=0,
-                verdict=adaptive_verdict(0, 5),
+                verdict=verdict,
                 status="completed",
                 completed_at=completed_at,
             )
         )
+        confirm_grade_from_verdict(profile, verdict, completed_at)
         return
     completed_at = datetime.now(timezone.utc) - timedelta(days=rng.randint(10, 120))
     session = TestSession(
@@ -203,6 +211,7 @@ def create_history(db: Session, profile: CandidateProfile, grade: str, rng: rand
     session.correct_count = correct
     session.result_score = result_score(correct, len(selected))
     session.verdict = adaptive_verdict(correct, len(selected))
+    confirm_grade_from_verdict(profile, session.verdict, completed_at)
     db.flush()
 
 
