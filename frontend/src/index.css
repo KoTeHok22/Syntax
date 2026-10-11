@@ -110,11 +110,11 @@
   background: #E7E2D9;
 }
 ::-webkit-scrollbar-thumb {
-  background: #C8C9CA;
+  background: #878788;
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #B07C00;
+  background: #8D6300;
 }
 
 @keyframes card-rise {

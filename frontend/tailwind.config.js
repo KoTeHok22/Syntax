@@ -21,7 +21,7 @@ export default {
         ink: {
           DEFAULT: '#1B1C21',
           secondary: '#6A6459',
-          muted: '#8B8578',
+          muted: '#665F53',
           line: '#C8C9CA',
         },
         good: {
@@ -29,10 +29,10 @@ export default {
           ink: '#147A43',
         },
         warn: {
-          DEFAULT: '#B07C00',
-          ink: '#8A6100',
+          DEFAULT: '#8D6300',
+          ink: '#7C5700',
         },
-        outline: '#C8C9CA',
+        outline: '#878788',
       },
       borderRadius: {
         DEFAULT: '0.75rem',
