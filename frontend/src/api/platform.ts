@@ -350,7 +350,7 @@ export function updateApplicationStatus(id: number, status: Application['status'
   return put(`/applications/${id}/status`, { status })
 }
 
-export function uploadResume(file: File): Promise<{ applied: string[] }> {
+export function uploadResume(file: File): Promise<{ applied: Record<string, unknown>; skipped: Record<string, string> }> {
   const form = new FormData()
   form.append('file', file)
   return postMultipart('/candidates/me/resume', form)

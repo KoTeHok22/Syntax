@@ -48,6 +48,21 @@ const specializationLabels: Record<string, string> = {
   design: 'Дизайн',
 }
 
+const resumeFieldLabels: Record<string, string> = {
+  full_name: 'ФИО',
+  specialization: 'Специализация',
+  stack: 'Стек',
+  years_of_experience: 'Опыт',
+  soft_skills: 'Софт-скиллы',
+  contacts: 'Контакты',
+  city: 'Город',
+  work_format: 'Формат работы',
+}
+
+function resumeFieldLabel(field: string): string {
+  return resumeFieldLabels[field] ?? field
+}
+
 interface ProfileForm {
   full_name: string
   specialization: string
@@ -266,7 +281,7 @@ export function CandidateProfilePage() {
     setIsUploading(true)
     try {
       const result = await uploadResume(file)
-      setAppliedFields(result.applied)
+      setAppliedFields(Object.keys(result.applied).map(resumeFieldLabel))
       await load()
     } catch (exception) {
       if (exception instanceof ApiError) setResumeError(exception.detail)

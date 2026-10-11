@@ -29,7 +29,7 @@ from backend.schemas.matching import (
     OfficeInput,
     VisibilityUpdate,
 )
-from backend.services.pdf_parser import PLACEHOLDER_DEFAULTS, parse_resume, sanitize_parsed_fields
+from backend.services.pdf_parser import parse_resume, sanitize_parsed_fields
 from backend.services.profile_pdf import build_profile_pdf
 from backend.services.candidate_score import candidate_score
 from backend.services.semantic_matching import index_candidate
@@ -193,7 +193,7 @@ async def upload_resume(
     applied = {}
     for field, value in candidates.items():
         current = getattr(profile, field, None)
-        if field not in PLACEHOLDER_DEFAULTS and current not in (None, "", [], {}, 0, 0.0):
+        if current not in (None, "", [], {}, 0, 0.0):
             skipped[field] = "поле уже заполнено"
             continue
         setattr(profile, field, value)

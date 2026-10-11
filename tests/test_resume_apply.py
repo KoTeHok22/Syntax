@@ -207,3 +207,58 @@ def test_unrecognized_specialization_never_reaches_profile(client, monkeypatch):
         headers=headers,
     )
     assert saved.status_code == 200
+
+
+def test_resume_does_not_overwrite_existing_full_name(client, monkeypatch):
+    token = register_and_login(client, "resume-keep-name@example.com", "candidate")
+    headers = auth(token)
+
+    seeded = client.put("/candidates/me", json={"full_name": "QA Name"}, headers=headers)
+    assert seeded.status_code == 200
+
+    upload = _upload_resume(client, headers, monkeypatch, '{"full_name": "Ivan Petrov"}')
+    assert upload.status_code == 200
+    body = upload.json()
+
+    assert "full_name" not in body["applied"]
+    assert body["skipped"]["full_name"] == "поле уже заполнено"
+
+    profile = client.get("/candidates/me", headers=headers).json()
+    assert profile["full_name"] == "QA Name"
+
+
+def test_resume_fills_empty_full_name(client, monkeypatch):
+    token = register_and_login(client, "resume-fill-name@example.com", "candidate")
+    headers = auth(token)
+
+    upload = _upload_resume(client, headers, monkeypatch, '{"full_name": "Ivan Petrov"}')
+    assert upload.status_code == 200
+    body = upload.json()
+
+    assert body["applied"]["full_name"] == "Ivan Petrov"
+
+    profile = client.get("/candidates/me", headers=headers).json()
+    assert profile["full_name"] == "Ivan Petrov"
+
+
+def test_applied_reports_fields_and_profile_saves(client, monkeypatch):
+    token = register_and_login(client, "resume-applied-keys@example.com", "candidate")
+    headers = auth(token)
+
+    upload = _upload_resume(
+        client,
+        headers,
+        monkeypatch,
+        '{"full_name": "Ivan Petrov", "specialization": "Backend", "stack": ["python"]}',
+    )
+    assert upload.status_code == 200
+    applied = upload.json()["applied"]
+
+    assert isinstance(applied, dict)
+    assert applied["full_name"] == "Ivan Petrov"
+    assert applied["specialization"] == "backend"
+    assert "python" in applied["stack"]
+
+    saved = client.put("/candidates/me", json={}, headers=headers)
+    assert saved.status_code == 200
+
