@@ -29,7 +29,7 @@ from backend.schemas.testing import (
     TestSessionSummary,
 )
 from backend.services.task_generation import check_answer, fallback_task, llm_task
-from backend.services.design_mockups import Mockup, build_mockup_html, grade_annotation, normalize_annotation, render_html_to_png, renderer_available, to_data_url
+from backend.services.design_mockups import Mockup, build_llm_mockup_html, grade_annotation, normalize_annotation, render_html_to_png, renderer_available, to_data_url
 from backend.services.semantic_matching import index_candidate
 
 router = APIRouter()
@@ -53,7 +53,7 @@ async def grade_annotation_task(task: Task, submission) -> tuple[bool, str]:
 async def build_annotation_task(concept, grade: str, seed: str, candidate_profile_id: int, session_id: int) -> Task | None:
     if not renderer_available():
         return None
-    mockup: Mockup = build_mockup_html(seed)
+    mockup: Mockup = await build_llm_mockup_html(seed)
     image_data_url = None
     try:
         png = await render_html_to_png(mockup.html)

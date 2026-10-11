@@ -102,7 +102,7 @@ export function ImageAnnotation({ src, value, onChange }: ImageAnnotationProps) 
         onTouchStart={onTouchStart}
         ref={containerRef}
       >
-        <img alt="РњР°РєРµС‚ РёРЅС‚РµСЂС„РµР№СЃР° СЃ РѕС€РёР±РєРѕР№ РґРёР·Р°Р№РЅР°" className="pointer-events-none block w-full" draggable={false} src={src} />
+        <img alt="Макет интерфейса с ошибкой дизайна" className="pointer-events-none block w-full" draggable={false} src={src} />
         {active !== null ? (
           <span
             className="pointer-events-none absolute border-2 border-pvn-red bg-pvn-red/20"
@@ -116,7 +116,7 @@ export function ImageAnnotation({ src, value, onChange }: ImageAnnotationProps) 
         ) : null}
       </div>
       <span className="font-sans text-[12px] text-ink-secondary">
-        {value !== null ? 'РћР±Р»Р°СЃС‚СЊ РІС‹РґРµР»РµРЅР°. РњРѕР¶РЅРѕ РїРµСЂРµС‚Р°С‰РёС‚СЊ РїСЂСЏРјРѕСѓРіРѕР»СЊРЅРёРє Р·Р°РЅРѕРІРѕ.' : 'РћР±РІРµРґРёС‚Рµ РїСЂРѕР±Р»РµРјРЅС‹Р№ СЌР»РµРјРµРЅС‚ РјС‹С€РєРѕР№ РёР»Рё РїР°Р»СЊС†РµРј.'}
+        {value !== null ? 'Область выделена. Можно перетащить прямоугольник заново.' : 'Обведите проблемный элемент мышкой или пальцем.'}
       </span>
     </div>
   )

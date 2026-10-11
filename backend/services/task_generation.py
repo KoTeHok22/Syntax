@@ -45,6 +45,13 @@ def build_prompt(concept, grade: str) -> str:
     )
 
 
+DESIGN_DOMAINS = {"design"}
+
+
+def is_design_concept(concept) -> bool:
+    return getattr(concept, "domain", None) in DESIGN_DOMAINS
+
+
 def parse_llm_response(raw: str, task_format: str) -> TaskDraft | None:
     text = raw.strip()
     if text.startswith("```"):
@@ -83,15 +90,18 @@ def fallback_task(concept, seed: str, context_labels: list[str]) -> TaskDraft | 
     order = list(range(len(options)))
     random.Random(int.from_bytes(digest[3:7], "big")).shuffle(order)
     shuffled = [options[i] for i in order]
+    task_format = concept.task_format if is_design_concept(concept) else "multiple_choice"
     return TaskDraft(
         statement=statement,
-        task_format="multiple_choice",
+        task_format=task_format,
         options=shuffled,
         reference_answer=order.index(0),
     )
 
 
 async def llm_task(concept, grade: str) -> TaskDraft | None:
+    if is_design_concept(concept):
+        return None
     client = get_llm_client()
     if isinstance(client, StubLLMClient):
         return None
@@ -112,6 +122,6 @@ async def generate_task(concept, grade: str, seed: str = "", context_labels: lis
 
 
 def check_answer(task, submission) -> bool:
-    if task.task_format == "multiple_choice":
+    if task.task_format in {"multiple_choice", "design_choice"}:
         return submission.option_index is not None and submission.option_index == task.reference_answer
     return submission.answer is not None and submission.answer.strip() == str(task.reference_answer).strip()

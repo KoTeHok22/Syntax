@@ -38,16 +38,16 @@ FLAW_TEMPLATES: list[dict] = [
         "flaw_id": "low_contrast",
         "title": "Недостаточный контраст текста",
         "description": "Подпись или текст набраны слишком бледным цветом на светлом фоне, контраст ниже 4,5:1 — текст плохо читается.",
-        "region": {"x": 0.06, "y": 0.42, "w": 0.6, "h": 0.1},
+        "region": {"x": 0.06, "y": 0.6, "w": 0.6, "h": 0.08},
         "html": """
-        <div style="background:#ffffff;color:#e3e3e3;font-size:15px;padding:10px 12px;border-radius:10px;">Итоговая сумма к оплате: 4 320 ₽</div>
+        <div style="background:#ffffff;color:#e6e6e6;font-size:15px;padding:10px 12px;border-radius:10px;">Итоговая сумма к оплате уточняется</div>
         """,
     },
     {
         "flaw_id": "tiny_tap_target",
         "title": "Слишком маленькая цель для нажатия",
         "description": "Кнопка закрытия или действия меньше 44×44 px, в неё трудно попасть пальцем на телефоне.",
-        "region": {"x": 0.82, "y": 0.06, "w": 0.12, "h": 0.06},
+        "region": {"x": 0.86, "y": 0.02, "w": 0.1, "h": 0.05},
         "html": """
         <div style="display:flex;justify-content:flex-end;"><span style="display:inline-flex;width:16px;height:16px;align-items:center;justify-content:center;color:#8891a8;font-size:14px;">✕</span></div>
         """,
@@ -56,69 +56,103 @@ FLAW_TEMPLATES: list[dict] = [
         "flaw_id": "missing_state",
         "title": "Нет обратной связи о состоянии",
         "description": "Кнопка запускает долгую операцию, но интерфейс не показывает загрузку и не меняет состояние — пользователь не понимает, что происходит.",
-        "region": {"x": 0.06, "y": 0.72, "w": 0.88, "h": 0.12},
+        "region": {"x": 0.06, "y": 0.6, "w": 0.88, "h": 0.08},
         "html": """
-        <div style="background:#2f5cff;color:#ffffff;text-align:center;padding:14px;border-radius:12px;font-size:16px;font-weight:600;">Оформить заказ</div>
+        <div style="background:#2f5cff;color:#ffffff;text-align:center;padding:14px;border-radius:12px;font-size:16px;font-weight:600;">{action}</div>
         """,
     },
     {
         "flaw_id": "no_confirmation",
         "title": "Опасное действие без подтверждения",
-        "description": "Удаление или отмена выполняется одним нажатием без подтверждения и без возможности отмены.",
-        "region": {"x": 0.06, "y": 0.3, "w": 0.5, "h": 0.12},
+        "description": "Удаление или очистка выполняется одним нажатием без подтверждения и без возможности отмены.",
+        "region": {"x": 0.06, "y": 0.3, "w": 0.5, "h": 0.1},
         "html": """
-        <div style="color:#5c6480;font-size:14px;padding:6px 0;text-decoration:underline;cursor:pointer;">Очистить корзину</div>
+        <div style="color:#5c6480;font-size:14px;padding:6px 0;text-decoration:underline;cursor:pointer;">Очистить всё</div>
         """,
     },
     {
         "flaw_id": "unclear_hierarchy",
         "title": "Нарушена визуальная иерархия",
-        "description": "Второстепенное действие выглядит так же ярко, как основное, и конкурирует с ним за внимание пользователя.",
-        "region": {"x": 0.06, "y": 0.58, "w": 0.4, "h": 0.1},
+        "description": "Второстепенное действие оформлено так же ярко, как основное, и конкурирует с ним за внимание пользователя.",
+        "region": {"x": 0.06, "y": 0.42, "w": 0.4, "h": 0.09},
         "html": """
-        <div style="display:flex;gap:10px;"><span style="background:#2f5cff;color:#fff;padding:12px 18px;border-radius:10px;font-size:15px;">Оплатить</span></div>
+        <div style="display:flex;gap:10px;"><span style="background:#2f5cff;color:#fff;padding:12px 18px;border-radius:10px;font-size:15px;">{action}</span></div>
         """,
     },
 ]
 
+PRODUCTS = [
+    "Кроссовки Nike Air",
+    "Куртка Columbia",
+    "Рюкзак Eastpak",
+    "Наушники Sony",
+    "Термокружка Stanley",
+    "Клавиатура Logitech",
+    "Кресло Ergo",
+    "Лампа Xiaomi",
+    "Футболка Uniqlo",
+    "Часы Casio",
+]
+NOTES = [
+    "Заказ №4821 · оплачен",
+    "Промокод SALE10 применён",
+    "Курьер до двери · завтра 10:00–18:00",
+    "Самовывоз · пункт на Ленина, 5",
+    "Доставка 2–3 дня · СДЭК",
+]
+ACTIONS = [
+    "Перейти к оплате",
+    "Подтвердить заказ",
+    "Сохранить изменения",
+    "Оформить доставку",
+    "Отправить заявку",
+]
+
 SCREEN_CONTEXTS = [
-    {
-        "title": "Корзина",
-        "lines": ["Кроссовки Nike Air", "Носки спортивные"],
-        "action": "Перейти к оплате",
-    },
-    {
-        "title": "Оформление заказа",
-        "lines": ["Курьер до двери · Завтра 10:00–18:00", "Промокод применён"],
-        "action": "Подтвердить заказ",
-    },
-    {
-        "title": "Профиль",
-        "lines": ["Иван Петров", "ivan@example.com"],
-        "action": "Сохранить изменения",
-    },
+    {"title": "Корзина"},
+    {"title": "Оформление заказа"},
+    {"title": "Профиль"},
+    {"title": "Доставка"},
+    {"title": "Подтверждение заказа"},
+    {"title": "Мои заказы"},
 ]
 
 
+def _seeded(seed: str, index: int) -> bytes:
+    return hashlib.sha256(f"{seed}:{index}".encode("utf-8")).digest()
+
+
 def pick_flaw(seed: str) -> dict:
-    digest = hashlib.sha256(seed.encode("utf-8")).digest()
-    index = int.from_bytes(digest[:4], "big") % len(FLAW_TEMPLATES)
-    return FLAW_TEMPLATES[index]
+    digest = _seeded(seed, 0)
+    return FLAW_TEMPLATES[int.from_bytes(digest[:4], "big") % len(FLAW_TEMPLATES)]
 
 
 def pick_context(seed: str) -> dict:
-    digest = hashlib.sha256(("ctx:" + seed).encode("utf-8")).digest()
+    digest = _seeded(seed, 1)
     return SCREEN_CONTEXTS[int.from_bytes(digest[:4], "big") % len(SCREEN_CONTEXTS)]
+
+
+def pick_variety(seed: str) -> dict:
+    digest = _seeded(seed, 2)
+    return {
+        "product": PRODUCTS[int.from_bytes(digest[0:4], "big") % len(PRODUCTS)],
+        "note": NOTES[int.from_bytes(digest[4:8], "big") % len(NOTES)],
+        "action": ACTIONS[int.from_bytes(digest[8:12], "big") % len(ACTIONS)],
+        "price": 490 + int.from_bytes(digest[12:16], "big") % 12900,
+        "quantity": 1 + int.from_bytes(digest[16:18], "big") % 4,
+    }
 
 
 def build_mockup_html(seed: str) -> Mockup:
     flaw = pick_flaw(seed)
     context = pick_context(seed)
+    variety = pick_variety(seed)
     rows = "".join(
         f'<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #eef0f5;color:#1c2130;font-size:14px;">'
         f'<span>{line}</span><span style="color:#5c6480;">—</span></div>'
-        for line in context["lines"]
+        for line in [variety["product"], variety["note"]]
     )
+    flaw_html = flaw["html"].replace("{product}", variety["product"]).replace("{action}", variety["action"])
     html = f"""<!DOCTYPE html>
 <html lang="ru"><head><meta charset="utf-8"><style>
 * {{ box-sizing: border-box; font-family: -apple-system, Segoe UI, Roboto, sans-serif; }}
@@ -130,11 +164,11 @@ body {{ margin:0; background:#f4f5f8; }}
 .muted {{ color:#8891a8; font-size:13px; }}
 </style></head><body>
 <div class="screen">
-  <div class="bar"><h1>{context["title"]}</h1><div style="color:#8891a8;font-size:13px;">Очистить</div></div>
+  <div class="bar"><h1>{context["title"]}</h1><div style="color:#8891a8;font-size:13px;">Закрыть</div></div>
   <div class="card">{rows}</div>
-  <div class="card">{flaw["html"]}</div>
-  <div class="card"><div class="muted">Итого</div><div style="font-size:20px;font-weight:700;color:#1c2130;">4 320 ₽</div></div>
-  <div style="background:#1c2130;color:#ffffff;text-align:center;padding:14px;border-radius:12px;font-size:16px;font-weight:600;">{context["action"]}</div>
+  <div class="card">{flaw_html}</div>
+  <div class="card"><div class="muted">Итого · {variety["quantity"]} шт.</div><div style="font-size:20px;font-weight:700;color:#1c2130;">{variety["price"]:,} ₽</div></div>
+  <div style="background:#1c2130;color:#ffffff;text-align:center;padding:14px;border-radius:12px;font-size:16px;font-weight:600;">{variety["action"]}</div>
 </div>
 </body></html>"""
     scenario = (
@@ -151,6 +185,63 @@ body {{ margin:0; background:#f4f5f8; }}
             region=flaw["region"],
         ),
     )
+
+
+MOCKUP_PROMPT = """Сгенерируй HTML мобильного экрана приложения «{app}».
+Экран: «{title}». Сценарий: {scenario}
+Внеси ровно одну намеренную ошибку дизайна: {flaw}.
+Требования: ширина 390px, белый фон, крупные читаемые шрифты, только инлайн-стили, без скриптов.
+Верни строго HTML-документ без markdown и без пояснений."""
+
+
+async def build_llm_mockup_html(seed: str) -> Mockup:
+    deterministic = build_mockup_html(seed)
+    client = get_llm_client()
+    if isinstance(client, StubLLMClient):
+        return deterministic
+    try:
+        raw = await client.complete(
+            MOCKUP_PROMPT.format(
+                app="Мобильный клиент",
+                title=pick_context(seed)["title"],
+                scenario=deterministic.scenario,
+                flaw=deterministic.flaw.description,
+            )
+        )
+    except Exception:
+        return deterministic
+    html = _extract_html(raw or "")
+    if not html or len(html.encode("utf-8")) > MAX_HTML_BYTES:
+        return deterministic
+    return Mockup(
+        html=html,
+        scenario=deterministic.scenario,
+        flaw=MockupFlaw(
+            flaw_id=deterministic.flaw.flaw_id,
+            title=deterministic.flaw.title,
+            description=deterministic.flaw.description,
+            region={},
+        ),
+        source="llm",
+    )
+
+
+def _extract_html(raw: str) -> str | None:
+    text = raw.strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```[a-zA-Z]*\s*", "", text)
+        text = re.sub(r"\s*```$", "", text)
+    if "<" not in text or ">" not in text:
+        return None
+    lowered = text.lower()
+    if "<script" in lowered or "javascript:" in lowered or "http://" in lowered or "https://" in lowered:
+        return None
+    start = lowered.find("<!doctype")
+    if start == -1:
+        start = lowered.find("<html")
+    if start == -1:
+        start = text.find("<")
+    return text[start:]
 
 
 async def render_html_to_png(html: str) -> bytes:
@@ -190,7 +281,7 @@ def to_data_url(png: bytes) -> str:
 
 
 def region_contains(region: dict, annotation: dict) -> bool:
-    if not annotation:
+    if not annotation or not region or "x" not in region:
         return False
     cx = annotation.get("x", 0) + annotation.get("w", 0) / 2
     cy = annotation.get("y", 0) + annotation.get("h", 0) / 2
@@ -220,18 +311,18 @@ def normalize_annotation(raw) -> dict | None:
     }
 
 
-VISION_GRADE_PROMPT = """Ты оцениваешь ответ дизайнера в тестовом задании.
-На изображении мобильного интерфейса намеренно внесена одна ошибка дизайна.
-Эталон ошибки: «{reference}».
-Кандидат выделил область и написал пояснение: «{note}».
-Оцени, верно ли кандидат нашёл именно эту ошибку и содержательно ли объяснил её.
-Верни строго JSON без markdown: {{"correct": true|false, "feedback": "одно короткое предложение на русском"}}."""
+VISION_GRADE_PROMPT = """Ты проверяешь ответ дизайнера. На изображении мобильного экрана намеренно внесена одна ошибка дизайна.
+Какой именно дефект заложен: «{reference}».
+Что сделал кандидат: выделил область и написал пояснение: «{note}».
+Оцени по двум условиям: (1) выделенная область действительно указывает на заложенный дефект; (2) пояснение называет суть нарушения.
+Отвечай доброжелательно и по делу, без домыслов о том, чего кандидат «не заметил».
+Верни строго JSON без markdown: {{"correct": true|false, "feedback": "одно короткое предложение на русском"}}"""
 
 
 async def grade_annotation(image_data_url: str, reference: str, note: str, annotation: dict | None, region: dict | None) -> tuple[bool, str]:
     note = (note or "").strip()
     if not note:
-        return False, "Нет пояснения к выделенной области."
+        return False, "Пояснение не заполнено — опишите, что нарушено."
     region_ok = region_contains(region, annotation) if region and annotation else False
     client = get_llm_client()
     if not isinstance(client, StubLLMClient):
@@ -242,13 +333,12 @@ async def grade_annotation(image_data_url: str, reference: str, note: str, annot
             )
             parsed = _parse_grade(raw or "")
             if parsed is not None:
-                correct, feedback = parsed
-                if correct and not region_ok:
-                    return True, "Ошибка найдена и объяснена."
-                return correct, feedback
+                return parsed
         except Exception:
             pass
-    return region_ok, "Проверено по выделенной области." if region_ok else "Выделена не та область."
+    if region_ok:
+        return True, "Область указана верно, пояснение принято."
+    return False, "Выделенная область не совпадает с заложенным дефектом."
 
 
 def _parse_grade(raw: str) -> tuple[bool, str] | None:

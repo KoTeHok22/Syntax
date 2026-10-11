@@ -20,7 +20,22 @@ def test_build_mockup_html_has_flaw_and_scenario():
     assert mockup.flaw.description
     assert mockup.flaw.region["w"] > 0
     assert mockup.scenario
-    assert "4 320" in mockup.html
+    assert "₽" in mockup.html
+
+
+def test_mockups_differ_between_seeds():
+    first = build_mockup_html("candidate:1")
+    second = build_mockup_html("candidate:2")
+    assert first.html != second.html
+
+
+def test_same_seed_is_identical():
+    assert build_mockup_html("candidate:7").html == build_mockup_html("candidate:7").html
+
+
+def test_empty_region_never_matches():
+    assert not region_contains({}, {"x": 0.1, "y": 0.1, "w": 0.1, "h": 0.1})
+    assert not region_contains(None, {"x": 0.1, "y": 0.1, "w": 0.1, "h": 0.1})
 
 
 def test_region_contains_uses_rectangle_center():
