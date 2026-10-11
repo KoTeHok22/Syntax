@@ -29,12 +29,24 @@ interface InvitationFormState {
   contactMethod: string
 }
 
+interface InvitationFieldErrors {
+  salaryFrom: string | null
+  salaryTo: string | null
+  contactMethod: string | null
+}
+
 const emptyInvitationForm: InvitationFormState = {
   message: '',
   salaryFrom: '',
   salaryTo: '',
   companyName: '',
   contactMethod: '',
+}
+
+const emptyInvitationErrors: InvitationFieldErrors = {
+  salaryFrom: null,
+  salaryTo: null,
+  contactMethod: null,
 }
 
 function SkeletonCard() {
@@ -71,6 +83,7 @@ export function EmployerSearchPage() {
   const [hasMore, setHasMore] = useState(false)
   const [inviteCard, setInviteCard] = useState<CandidateCardData | null>(null)
   const [invitationForm, setInvitationForm] = useState<InvitationFormState>(emptyInvitationForm)
+  const [invitationFieldErrors, setInvitationFieldErrors] = useState<InvitationFieldErrors>(emptyInvitationErrors)
   const [companyName, setCompanyName] = useState('')
   const [invitationError, setInvitationError] = useState<string | null>(null)
   const [isSubmittingInvitation, setIsSubmittingInvitation] = useState(false)
@@ -272,12 +285,14 @@ export function EmployerSearchPage() {
   const openInvitationModal = (card: CandidateCardData) => {
     setInviteCard(card)
     setInvitationForm(emptyInvitationForm)
+    setInvitationFieldErrors(emptyInvitationErrors)
     setInvitationError(null)
   }
 
   const closeInvitationModal = () => {
     setInviteCard(null)
     setInvitationForm(emptyInvitationForm)
+    setInvitationFieldErrors(emptyInvitationErrors)
     setInvitationError(null)
   }
 
@@ -287,12 +302,25 @@ export function EmployerSearchPage() {
     setInvitationError(null)
     const salaryFrom = Number(invitationForm.salaryFrom)
     const salaryTo = Number(invitationForm.salaryTo)
-    if (!Number.isFinite(salaryFrom) || !Number.isFinite(salaryTo) || salaryFrom <= 0 || salaryTo <= 0) {
-      setInvitationError('Укажите обе границы зарплатной вилки')
+    const fieldErrors: InvitationFieldErrors = { salaryFrom: null, salaryTo: null, contactMethod: null }
+    if (invitationForm.salaryFrom.trim() === '' || !Number.isFinite(salaryFrom) || salaryFrom <= 0) {
+      fieldErrors.salaryFrom = 'Укажите нижнюю границу вилки'
+    }
+    if (invitationForm.salaryTo.trim() === '' || !Number.isFinite(salaryTo) || salaryTo <= 0) {
+      fieldErrors.salaryTo = 'Укажите верхнюю границу вилки'
+    }
+    if (invitationForm.contactMethod.trim() === '') {
+      fieldErrors.contactMethod = 'Укажите способ связи — кандидат увидит его после принятия'
+    }
+    if (fieldErrors.salaryFrom !== null || fieldErrors.salaryTo !== null || fieldErrors.contactMethod !== null) {
+      setInvitationFieldErrors(fieldErrors)
+      setInvitationError('Заполните обязательные поля, отмеченные звёздочкой')
       return
     }
+    setInvitationFieldErrors(emptyInvitationErrors)
     if (salaryTo < salaryFrom) {
-      setInvitationError('Верхняя граница вилки не может быть меньше нижней')
+      setInvitationFieldErrors({ ...emptyInvitationErrors, salaryTo: 'Верхняя граница не может быть меньше нижней' })
+      setInvitationError('Проверьте зарплатную вилку')
       return
     }
     if (companyName.trim().length === 0) {
@@ -383,13 +411,13 @@ export function EmployerSearchPage() {
           </span>
           <input
             aria-label="Поиск по навыкам"
-            className="field py-3.5 pl-12 pr-32"
+            className="field py-3.5 pl-12 pr-[7.5rem] sm:pr-32"
             onChange={(event) => setStackInput(event.target.value)}
-            placeholder="Навык: Python, Kafka, FastAPI…"
+            placeholder="Навык: Python, Kafka…"
             type="search"
             value={stackInput}
           />
-          <button className="btn-blue absolute right-2 top-1/2 -translate-y-1/2 px-4 py-2 text-[13px]" type="submit">
+          <button className="btn-blue absolute right-2 top-1/2 -translate-y-1/2 px-3 py-2 text-[13px] sm:px-4" type="submit">
             Добавить
           </button>
         </form>
@@ -491,10 +519,19 @@ export function EmployerSearchPage() {
         ) : null}
       </div>
 
-      <div className="flex items-center gap-3">
-        <span className="font-mono text-h2 font-bold text-ink">Найдено:</span>
-        <span className="font-mono text-[22px] font-extrabold text-pvn-blue">{cards.length}</span>
-        <span className="hidden font-sans text-caption text-ink-secondary sm:inline">соответствуют фильтрам</span>
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="font-mono text-h2 font-bold text-ink">
+          {isLoading ? 'Поиск…' : `Найдено: ${cards.length}${hasMore ? '+' : ''}`}
+        </span>
+        <span className="font-sans text-caption text-ink-secondary">
+          {isLoading
+            ? ''
+            : hasMore
+              ? 'показаны первые — нажмите «Показать ещё», чтобы увидеть остальных'
+              : cards.length === 0
+                ? 'ни один кандидат не подходит под фильтры'
+                : 'кандидатов соответствуют фильтрам'}
+        </span>
       </div>
 
       {searchError !== null ? (
@@ -553,6 +590,7 @@ export function EmployerSearchPage() {
           <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
             <span className="font-mono text-[12px] text-ink-secondary">
               Показано <span className="font-bold text-ink">{cards.length}</span> кандидатов
+              {hasMore ? ' — есть ещё' : ''}
             </span>
             {hasMore ? (
               <button className="btn-ghost text-[13px]" disabled={isLoadingMore || searchError !== null} onClick={() => void loadCards(cards.length, new AbortController().signal)} type="button">
@@ -595,7 +633,7 @@ export function EmployerSearchPage() {
                 <span className="font-mono text-[12px] text-ink-secondary">/ 100</span>
               </div>
             </div>
-            <form className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-6" onSubmit={submitInvitation}>
+            <form className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-6" noValidate onSubmit={submitInvitation}>
               <div className="flex flex-col gap-1.5">
                 <label className="font-mono text-[12px] font-semibold uppercase tracking-wider text-ink" htmlFor="search-invite-message">
                   Описание предложения
@@ -605,7 +643,6 @@ export function EmployerSearchPage() {
                   id="search-invite-message"
                   onChange={(event) => setInvitationForm({ ...invitationForm, message: event.target.value })}
                   placeholder="Проект, команда, задачи…"
-                  required
                   rows={3}
                   value={invitationForm.message}
                 />
@@ -615,46 +652,61 @@ export function EmployerSearchPage() {
                   Зарплата, ₽ <span className="text-pvn-red-ink">*</span>
                 </label>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div className="flex items-center rounded-xl bg-raised px-3 shadow-raised-sm focus-within:ring-2 focus-within:ring-pvn-blue/40">
+                  <div className={`flex items-center rounded-xl bg-raised px-3 shadow-raised-sm focus-within:ring-2 focus-within:ring-pvn-blue/40 ${invitationFieldErrors.salaryFrom !== null ? 'ring-2 ring-pvn-red/40' : ''}`}>
                     <span className="font-mono text-[12px] text-ink-muted">от</span>
                     <input
-                      className="w-full bg-transparent px-2 py-2.5 font-mono text-[16px] font-bold text-ink placeholder:font-normal placeholder:italic placeholder:text-ink-muted/45 focus:outline-none"
+                      className="w-full bg-transparent px-2 py-2.5 font-mono text-[16px] font-bold text-ink placeholder:font-normal placeholder:italic placeholder:text-ink-muted/35 focus:outline-none"
                       min={1}
-                      onChange={(event) => setInvitationForm({ ...invitationForm, salaryFrom: event.target.value })}
-                      placeholder="180 000"
-                      required
+                      onChange={(event) => {
+                        setInvitationForm({ ...invitationForm, salaryFrom: event.target.value })
+                        setInvitationFieldErrors((previous) => ({ ...previous, salaryFrom: null }))
+                      }}
+                      placeholder="например, 180 000"
                       type="number"
                       value={invitationForm.salaryFrom}
                     />
                   </div>
-                  <div className="flex items-center rounded-xl bg-raised px-3 shadow-raised-sm focus-within:ring-2 focus-within:ring-pvn-blue/40">
+                  <div className={`flex items-center rounded-xl bg-raised px-3 shadow-raised-sm focus-within:ring-2 focus-within:ring-pvn-blue/40 ${invitationFieldErrors.salaryTo !== null ? 'ring-2 ring-pvn-red/40' : ''}`}>
                     <span className="font-mono text-[12px] text-ink-muted">до</span>
                     <input
-                      className="w-full bg-transparent px-2 py-2.5 font-mono text-[16px] font-bold text-ink placeholder:font-normal placeholder:italic placeholder:text-ink-muted/45 focus:outline-none"
+                      className="w-full bg-transparent px-2 py-2.5 font-mono text-[16px] font-bold text-ink placeholder:font-normal placeholder:italic placeholder:text-ink-muted/35 focus:outline-none"
                       min={1}
-                      onChange={(event) => setInvitationForm({ ...invitationForm, salaryTo: event.target.value })}
-                      placeholder="240 000"
-                      required
+                      onChange={(event) => {
+                        setInvitationForm({ ...invitationForm, salaryTo: event.target.value })
+                        setInvitationFieldErrors((previous) => ({ ...previous, salaryTo: null }))
+                      }}
+                      placeholder="например, 240 000"
                       type="number"
                       value={invitationForm.salaryTo}
                     />
                   </div>
                 </div>
-                <p className="font-sans text-[12px] text-ink-secondary">Пример: от 180 000 до 240 000 ₽</p>
+                {invitationFieldErrors.salaryFrom !== null ? (
+                  <span className="font-sans text-[12px] font-semibold text-pvn-red-ink">{invitationFieldErrors.salaryFrom}</span>
+                ) : null}
+                {invitationFieldErrors.salaryTo !== null ? (
+                  <span className="font-sans text-[12px] font-semibold text-pvn-red-ink">{invitationFieldErrors.salaryTo}</span>
+                ) : null}
+                <p className="font-sans text-[12px] text-ink-secondary">Укажите нижнюю и верхнюю границу вилки — кандидат увидит обе.</p>
               </div>
               <div className="flex flex-col gap-1.5">
                 <label className="font-mono text-[12px] font-semibold uppercase tracking-wider text-ink" htmlFor="search-invite-contact">
-                  Способ связи
+                  Способ связи <span className="text-pvn-red-ink">*</span>
                 </label>
                 <input
-                  className="field"
+                  className={`field ${invitationFieldErrors.contactMethod !== null ? 'border-pvn-red/50 ring-1 ring-pvn-red/30' : ''}`}
                   id="search-invite-contact"
-                  onChange={(event) => setInvitationForm({ ...invitationForm, contactMethod: event.target.value })}
+                  onChange={(event) => {
+                    setInvitationForm({ ...invitationForm, contactMethod: event.target.value })
+                    setInvitationFieldErrors((previous) => ({ ...previous, contactMethod: null }))
+                  }}
                   placeholder="tg: @nickname"
-                  required
                   type="text"
                   value={invitationForm.contactMethod}
                 />
+                {invitationFieldErrors.contactMethod !== null ? (
+                  <span className="font-sans text-[12px] font-semibold text-pvn-red-ink">{invitationFieldErrors.contactMethod}</span>
+                ) : null}
               </div>
               <p className="font-sans text-[13px] text-ink-secondary">Кандидат увидит зарплату и описание до ответа.</p>
               {invitationError !== null ? (

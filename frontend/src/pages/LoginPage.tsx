@@ -28,11 +28,32 @@ function HeroArt() {
   )
 }
 
+const HERO_CONTENT = {
+  candidate: {
+    headline: 'Работодатель находит вас по подтверждённым навыкам',
+    description: 'Зарплата видна до первого контакта. Профиль анонимный, контакты открываются после принятия.',
+    stats: [
+      { value: '3 400+', label: 'разработчиков' },
+      { value: '180+', label: 'компаний' },
+      { value: '48 ч.', label: 'до оффера' },
+    ],
+  },
+  employer: {
+    headline: 'Найдите подтверждённых кандидатов за 48 часов',
+    description: 'Анонимные анкеты с проверенным грейдом и прозрачным баллом. Вилка фиксируется до контакта.',
+    stats: [
+      { value: '3 400+', label: 'кандидатов' },
+      { value: '180+', label: 'компаний' },
+      { value: '48 ч.', label: 'до шортлиста' },
+    ],
+  },
+} as const
+
 export function LoginPage() {
   const { login, register } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const [mode, setMode] = useState<Mode>('login')
+  const [mode, setMode] = useState<Mode>(searchParams.get('tab') === 'register' ? 'register' : 'login')
   const [role, setRole] = useState<'candidate' | 'employer'>('candidate')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -45,12 +66,15 @@ export function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const sessionExpired = searchParams.get('expired') === '1'
 
-  const submitLabel =
-    mode === 'login'
-      ? 'Войти'
-      : role === 'candidate'
-        ? 'Создать профиль'
-        : 'Создать профиль'
+  const switchMode = (next: Mode) => {
+    setMode(next)
+    setError(null)
+    setInfo(null)
+  }
+
+  const hero = HERO_CONTENT[role]
+
+  const submitLabel = mode === 'login' ? 'Войти' : 'Создать профиль'
 
   const onSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -112,25 +136,19 @@ export function LoginPage() {
           <div className="relative z-10 space-y-8">
             <BrandLockup size={40} tone="light" />
             <h1 className="font-mono text-[34px] font-extrabold leading-[1.15] tracking-tight text-white sm:text-[40px]">
-              Работодатель находит вас по подтверждённым навыкам
+              {hero.headline}
             </h1>
-            <p className="max-w-md font-sans text-[16px] leading-relaxed text-white/75">
-              Зарплата видна до первого контакта. Профиль анонимный, контакты открываются после принятия.
+            <p className="max-w-md font-sans text-[16px] leading-relaxed text-white/90 [text-shadow:0_1px_2px_rgba(15,18,29,0.45)]">
+              {hero.description}
             </p>
           </div>
           <div className="relative z-10 grid grid-cols-3 gap-3 border-t border-white/20 pt-4">
-            <div>
-              <div className="font-mono text-[22px] font-bold text-white">3 400+</div>
-              <div className="font-mono text-[10px] uppercase tracking-wider text-white/60">разработчиков</div>
-            </div>
-            <div>
-              <div className="font-mono text-[22px] font-bold text-white">180+</div>
-              <div className="font-mono text-[10px] uppercase tracking-wider text-white/60">компаний</div>
-            </div>
-            <div>
-              <div className="font-mono text-[22px] font-bold text-white">48 ч.</div>
-              <div className="font-mono text-[10px] uppercase tracking-wider text-white/60">до оффера</div>
-            </div>
+            {hero.stats.map((stat) => (
+              <div key={stat.label}>
+                <div className="font-mono text-[22px] font-bold text-white">{stat.value}</div>
+                <div className="font-mono text-[10px] uppercase tracking-wider text-white/60">{stat.label}</div>
+              </div>
+            ))}
           </div>
         </section>
 
@@ -142,14 +160,14 @@ export function LoginPage() {
             <div className="flex items-center gap-1 rounded-full bg-inset p-1 shadow-inset-sm">
               <button
                 className={mode === 'login' ? 'rounded-full bg-pvn-blue px-4 py-1.5 font-mono text-[12px] font-bold text-white shadow-blue' : 'rounded-full px-4 py-1.5 font-mono text-[12px] font-medium text-ink-secondary transition-all'}
-                onClick={() => setMode('login')}
+                onClick={() => switchMode('login')}
                 type="button"
               >
                 Вход
               </button>
               <button
                 className={mode === 'register' ? 'rounded-full bg-pvn-blue px-4 py-1.5 font-mono text-[12px] font-bold text-white shadow-blue' : 'rounded-full px-4 py-1.5 font-mono text-[12px] font-medium text-ink-secondary transition-all'}
-                onClick={() => setMode('register')}
+                onClick={() => switchMode('register')}
                 type="button"
               >
                 Регистрация
@@ -165,7 +183,7 @@ export function LoginPage() {
                   ? 'flex items-center justify-center gap-2 rounded-xl bg-pvn-blue py-3 font-mono text-[13px] font-bold text-white shadow-blue'
                   : 'flex items-center justify-center gap-2 rounded-xl py-3 font-mono text-[13px] font-medium text-ink-secondary transition-all hover:text-ink'
               }
-              onClick={() => setRole('candidate')}
+              onClick={() => { setRole('candidate'); setError(null); setInfo(null) }}
               type="button"
             >
               Я кандидат
@@ -176,7 +194,7 @@ export function LoginPage() {
                   ? 'flex items-center justify-center gap-2 rounded-xl bg-pvn-blue py-3 font-mono text-[13px] font-bold text-white shadow-blue'
                   : 'flex items-center justify-center gap-2 rounded-xl py-3 font-mono text-[13px] font-medium text-ink-secondary transition-all hover:text-ink'
               }
-              onClick={() => setRole('employer')}
+              onClick={() => { setRole('employer'); setError(null); setInfo(null) }}
               type="button"
             >
               Я работодатель
@@ -253,7 +271,7 @@ export function LoginPage() {
                 </div>
               </div>
             ) : null}
-            {mode === 'register' ? (
+            {mode === 'register' && role === 'candidate' ? (
               <div className="relative">
                 <span className="material-symbols-outlined pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[20px] text-ink-muted">badge</span>
                 <input
@@ -272,7 +290,7 @@ export function LoginPage() {
             {error !== null ? (
               <div className="rounded-xl bg-pvn-red/10 px-4 py-3 font-sans text-caption text-pvn-red-ink">{error}</div>
             ) : null}
-            {error === null && sessionExpired ? (
+            {error === null && sessionExpired && mode === 'login' ? (
               <div className="rounded-xl bg-pvn-red/10 px-4 py-3 font-sans text-caption text-pvn-red-ink">
                 Сессия истекла — войдите снова, чтобы продолжить
               </div>
@@ -297,7 +315,9 @@ export function LoginPage() {
                   type="checkbox"
                 />
                 <span className="font-sans text-caption leading-snug text-ink-secondary">
-                  Согласен на обработку персональных данных и публикацию анонимного профиля
+                  {role === 'candidate'
+                    ? 'Согласен на обработку персональных данных и публикацию анонимного профиля'
+                    : 'Согласен с условиями платформы и обработкой персональных данных'}
                 </span>
               </label>
             </div>

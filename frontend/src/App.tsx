@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider, useAuth } from './auth/AuthContext'
 import { RequireRole, Layout } from './components/Layout'
 import { LoginPage } from './pages/LoginPage'
+import { NotFoundPage } from './pages/NotFoundPage'
 import { ConfirmEmailPage } from './pages/ConfirmEmailPage'
 import { MatchPage } from './pages/employer/MatchPage'
 import { EmployerSearchPage } from './pages/employer/EmployerSearchPage'
@@ -38,6 +39,7 @@ export function App() {
         <Routes>
           <Route path="/" element={<RootRedirect />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<Navigate to="/login?tab=register" replace />} />
           <Route path="/confirm-email/:token" element={<ConfirmEmailPage />} />
           <Route path="/auth/confirm/:token" element={<ConfirmEmailPage />} />
           <Route
@@ -136,6 +138,7 @@ export function App() {
               </RequireRole>
             }
           />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

@@ -9,6 +9,7 @@ import type { TestSession } from '../../api/testing'
 import { formatExperience, formatIsoDate, formatNumberInput, gradeLabel } from '../../lib/format'
 import { LogoAvatar } from '../../components/LogoAvatar'
 import { LogoCropEditor } from '../../components/LogoCropEditor'
+import { Toast } from '../../components/Toast'
 import { DEFAULT_LOGO_CROP } from '../../lib/logoCrop'
 import type { LogoCrop } from '../../lib/logoCrop'
 
@@ -92,6 +93,7 @@ export function CandidateProfilePage() {
   const [avatarCrop, setAvatarCrop] = useState<LogoCrop>(DEFAULT_LOGO_CROP)
   const [avatarError, setAvatarError] = useState<string | null>(null)
   const [sessions, setSessions] = useState<TestSession[]>([])
+  const [saveNotice, setSaveNotice] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const closePreview = useCallback(() => {
@@ -179,6 +181,7 @@ export function CandidateProfilePage() {
       setProfile(updated)
       setGradeValue(updated.grade ?? '')
       setIsEditing(false)
+      setSaveNotice('Профиль сохранён')
       window.dispatchEvent(new Event('syntax:profile-updated'))
     } catch (exception) {
       if (exception instanceof ApiError) setFormError(exception.detail)
@@ -356,6 +359,8 @@ export function CandidateProfilePage() {
         <h1 className="font-mono text-display font-extrabold tracking-tight text-ink">Профиль кандидата</h1>
         <span className="stat-pill bg-pvn-blue text-white">Профиль заполнен на {filled}%</span>
       </div>
+
+      <Toast message={saveNotice} onClose={() => setSaveNotice(null)} />
 
       {error !== null ? (
         <div className="flex items-center gap-3 rounded-panel bg-pvn-red/10 px-5 py-4 font-sans text-caption text-pvn-red-ink shadow-raised-sm">

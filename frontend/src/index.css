@@ -50,7 +50,7 @@
   }
 
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-red-btn px-6 py-3 font-mono text-[15px] font-bold uppercase tracking-wide text-white shadow-red transition-all hover:shadow-red-lg active:shadow-pressed active:translate-y-px;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-blue-btn px-6 py-3 font-mono text-[15px] font-bold uppercase tracking-wide text-white shadow-blue transition-all hover:shadow-blue-lg active:shadow-pressed active:translate-y-px;
   }
 
   .btn-primary:disabled {

@@ -10,10 +10,13 @@ from backend.db import Base, SessionLocal, engine, ensure_vector_extension
 from backend.models import (
     Application,
     CandidateProfile,
+    Concept,
     EmployerProfile,
     PvnAchievement,
     Invitation,
     RegularTask,
+    Task,
+    TestAnswer,
     TestSession,
     User,
     Vacancy,
@@ -117,20 +120,84 @@ def create_demo_users(db: Session, count: int, rng: random.Random) -> int:
 
 def create_history(db: Session, profile: CandidateProfile, grade: str, rng: random.Random) -> None:
     ability = min(0.95, max(0.15, ABILITY_BY_GRADE[grade] + rng.uniform(-0.25, 0.2)))
-    task_count = 5
-    correct = sum(1 for _ in range(task_count) if rng.random() < ability)
+    pool = (
+        db.query(Task)
+        .filter(
+            Task.concept_id.isnot(None),
+            Task.candidate_profile_id.is_(None),
+            Task.session_id.is_(None),
+            Task.task_format == "multiple_choice",
+        )
+        .order_by(Task.id)
+        .all()
+    )
+    grade_pool = [task for task in pool if task.grade == grade]
+    if len(grade_pool) < 5:
+        grade_pool = pool
+    rng.shuffle(grade_pool)
+    selected = grade_pool[:5]
+    if len(selected) == 0:
+        completed_at = datetime.now(timezone.utc) - timedelta(days=rng.randint(10, 120))
+        db.add(
+            TestSession(
+                candidate_profile_id=profile.id,
+                grade=grade,
+                task_count=0,
+                correct_count=0,
+                result_score=0,
+                verdict=adaptive_verdict(0, 5),
+                status="completed",
+                completed_at=completed_at,
+            )
+        )
+        return
     completed_at = datetime.now(timezone.utc) - timedelta(days=rng.randint(10, 120))
     session = TestSession(
         candidate_profile_id=profile.id,
         grade=grade,
-        task_count=task_count,
-        correct_count=correct,
-        result_score=result_score(correct, task_count),
-        verdict=adaptive_verdict(correct, task_count),
+        task_count=len(selected),
+        correct_count=0,
         status="completed",
         completed_at=completed_at,
     )
     db.add(session)
+    db.flush()
+    correct = 0
+    for source in selected:
+        options = list(source.options) if isinstance(source.options, list) else []
+        reference = source.reference_answer if isinstance(source.reference_answer, int) else 0
+        is_correct = rng.random() < ability
+        if is_correct:
+            option_index = reference
+            correct += 1
+        else:
+            wrong = [index for index in range(len(options)) if index != reference]
+            option_index = wrong[rng.randrange(len(wrong))] if wrong else reference
+        task = Task(
+            concept_id=source.concept_id,
+            grade=source.grade,
+            statement=source.statement,
+            task_format=source.task_format,
+            options=options,
+            reference_answer=reference,
+            candidate_profile_id=profile.id,
+            session_id=session.id,
+        )
+        db.add(task)
+        db.flush()
+        db.add(
+            TestAnswer(
+                session_id=session.id,
+                task_id=task.id,
+                option_index=option_index,
+                is_correct=is_correct,
+                created_at=completed_at,
+            )
+        )
+    session.correct_count = correct
+    session.result_score = result_score(correct, len(selected))
+    session.verdict = adaptive_verdict(correct, len(selected))
+    db.flush()
 
 
 def create_achievements(db: Session, profile: CandidateProfile, rng: random.Random) -> None:
@@ -281,6 +348,87 @@ def description_placeholder(specialization: str, grade: str) -> str:
     return VACANCY_DESCRIPTION.get(specialization, "Продуктовая команда, задачи с реальными пользователями.")
 
 
+def backfill_session_answers(db: Session, rng: random.Random) -> int:
+    pool = (
+        db.query(Task)
+        .filter(
+            Task.concept_id.isnot(None),
+            Task.candidate_profile_id.is_(None),
+            Task.session_id.is_(None),
+            Task.task_format == "multiple_choice",
+        )
+        .order_by(Task.id)
+        .all()
+    )
+    if len(pool) == 0:
+        return 0
+    sessions = (
+        db.query(TestSession)
+        .filter(TestSession.status == "completed", TestSession.task_count > 0)
+        .order_by(TestSession.id)
+        .all()
+    )
+    filled = 0
+    for session in sessions:
+        existing_tasks = db.query(Task).filter(Task.session_id == session.id).order_by(Task.id).all()
+        existing_answers = {
+            answer.task_id for answer in db.query(TestAnswer).filter(TestAnswer.session_id == session.id).all()
+        }
+        if len(existing_tasks) > 0 and len(existing_answers) == len(existing_tasks):
+            continue
+        if len(existing_tasks) == 0:
+            grade_pool = [task for task in pool if task.grade == session.grade]
+            if len(grade_pool) < session.task_count:
+                grade_pool = pool
+            rng.shuffle(grade_pool)
+            sources = grade_pool[: session.task_count]
+            for source in sources:
+                options = list(source.options) if isinstance(source.options, list) else []
+                reference = source.reference_answer if isinstance(source.reference_answer, int) else 0
+                task = Task(
+                    concept_id=source.concept_id,
+                    grade=source.grade,
+                    statement=source.statement,
+                    task_format=source.task_format,
+                    options=options,
+                    reference_answer=reference,
+                    candidate_profile_id=session.candidate_profile_id,
+                    session_id=session.id,
+                )
+                db.add(task)
+                db.flush()
+                existing_tasks.append(task)
+        ability = ABILITY_BY_GRADE.get(session.grade, 0.6)
+        correct = 0
+        for task in existing_tasks:
+            options = task.options if isinstance(task.options, list) else []
+            reference = task.reference_answer if isinstance(task.reference_answer, int) else 0
+            is_correct = rng.random() < ability
+            if is_correct:
+                option_index = reference
+                correct += 1
+            else:
+                wrong = [index for index in range(len(options)) if index != reference]
+                option_index = wrong[rng.randrange(len(wrong))] if wrong else reference
+            if task.id not in existing_answers:
+                db.add(
+                    TestAnswer(
+                        session_id=session.id,
+                        task_id=task.id,
+                        option_index=option_index,
+                        is_correct=is_correct,
+                        created_at=session.completed_at,
+                    )
+                )
+        session.task_count = len(existing_tasks)
+        session.correct_count = correct
+        session.result_score = result_score(correct, len(existing_tasks)) if existing_tasks else 0
+        session.verdict = adaptive_verdict(correct, len(existing_tasks)) if existing_tasks else adaptive_verdict(0, 5)
+        filled += 1
+    db.flush()
+    return filled
+
+
 def main() -> None:
     ensure_vector_extension(engine)
     Base.metadata.create_all(bind=engine)
@@ -295,11 +443,14 @@ def main() -> None:
         applications = create_demo_applications(db, rng)
         regular_tasks = create_demo_regular_tasks(db)
         db.commit()
+        backfilled = backfill_session_answers(db, rng)
+        db.commit()
         print(f"Создано кандидатов: {candidates}")
         print(f"Создано вакансий: {vacancies}")
         print(f"Создано приглашений: {invitations}")
         print(f"Создано откликов: {applications}")
         print(f"Создано регулярных заданий: {regular_tasks}")
+        print(f"Разбор сессий заполнен: {backfilled}")
         print(f"Демо-пароль для всех аккаунтов: {DEMO_PASSWORD}")
         print("Работодатели: " + ", ".join(email for email, _, _ in EMPLOYERS))
         print("Кандидаты: demo.candidate.001@example.com ... demo.candidate.100@example.com")

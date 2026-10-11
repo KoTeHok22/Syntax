@@ -743,6 +743,15 @@ export function CandidateTestingPage() {
           ) : null}
         </div>
         <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-6 py-5">
+          {review !== null && review.review.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 py-8 text-center text-ink-secondary">
+              <span className="material-symbols-outlined text-[40px] text-ink-muted">history_toggle_off</span>
+              <span className="font-mono text-h3 font-bold text-ink">Разбор недоступен</span>
+              <span className="max-w-md font-sans text-caption">
+                Для этой сессии не сохранены ответы — возможно, она была пройдена или загружена до появления разбора. Пройдите тест заново, чтобы увидеть разбор.
+              </span>
+            </div>
+          ) : null}
           {review !== null
             ? review.review.map((item, index) => (
                 <div className="flex flex-col gap-3 rounded-2xl bg-inset p-4 shadow-inset-sm" key={item.task_id}>

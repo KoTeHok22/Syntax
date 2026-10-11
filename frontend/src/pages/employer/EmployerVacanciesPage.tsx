@@ -36,6 +36,13 @@ interface VacancyFormState {
   salaryTo: string
 }
 
+interface VacancyFieldErrors {
+  title: string | null
+  stack: string | null
+  salaryFrom: string | null
+  salaryTo: string | null
+}
+
 const emptyVacancyForm: VacancyFormState = {
   title: '',
   description: '',
@@ -44,6 +51,13 @@ const emptyVacancyForm: VacancyFormState = {
   grade: 'middle',
   salaryFrom: '',
   salaryTo: '',
+}
+
+const emptyVacancyErrors: VacancyFieldErrors = {
+  title: null,
+  stack: null,
+  salaryFrom: null,
+  salaryTo: null,
 }
 
 function formatSalary(from: number, to: number): string {
@@ -75,6 +89,7 @@ export function EmployerVacanciesPage() {
   const [editingVacancy, setEditingVacancy] = useState<Vacancy | null>(null)
   const [vacancyForm, setVacancyForm] = useState<VacancyFormState>(emptyVacancyForm)
   const [formError, setFormError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<VacancyFieldErrors>(emptyVacancyErrors)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [confirmingCloseId, setConfirmingCloseId] = useState<number | null>(null)
   const [isClosing, setIsClosing] = useState(false)
@@ -120,6 +135,7 @@ export function EmployerVacanciesPage() {
     setVacancyForm(emptyVacancyForm)
     setEditingVacancy(null)
     setFormError(null)
+    setFieldErrors(emptyVacancyErrors)
     setModalMode('create')
   }
 
@@ -135,6 +151,7 @@ export function EmployerVacanciesPage() {
     })
     setEditingVacancy(vacancy)
     setFormError(null)
+    setFieldErrors(emptyVacancyErrors)
     setModalMode('edit')
   }
 
@@ -143,6 +160,7 @@ export function EmployerVacanciesPage() {
     setEditingVacancy(null)
     setVacancyForm(emptyVacancyForm)
     setFormError(null)
+    setFieldErrors(emptyVacancyErrors)
   }
 
   const submitVacancy = async (event: React.FormEvent) => {
@@ -150,20 +168,31 @@ export function EmployerVacanciesPage() {
     setFormError(null)
     const salaryFrom = Number(vacancyForm.salaryFrom)
     const salaryTo = Number(vacancyForm.salaryTo)
-    if (!Number.isFinite(salaryFrom) || !Number.isFinite(salaryTo) || salaryFrom <= 0 || salaryTo <= 0) {
-      setFormError('Укажите обе границы зарплатной вилки')
-      return
-    }
-    if (salaryTo < salaryFrom) {
-      setFormError('Верхняя граница вилки не может быть меньше нижней')
-      return
-    }
     const stack = vacancyForm.stack
       .split(',')
       .map((item) => item.trim())
       .filter((item) => item.length > 0)
-    if (stack.length === 0) {
-      setFormError('Укажите хотя бы одну технологию стека')
+    const errors: VacancyFieldErrors = {
+      title: vacancyForm.title.trim() === '' ? 'Укажите название должности' : null,
+      stack: stack.length === 0 ? 'Укажите хотя бы одну технологию стека' : null,
+      salaryFrom:
+        vacancyForm.salaryFrom.trim() === '' || !Number.isFinite(salaryFrom) || salaryFrom <= 0
+          ? 'Укажите нижнюю границу вилки'
+          : null,
+      salaryTo:
+        vacancyForm.salaryTo.trim() === '' || !Number.isFinite(salaryTo) || salaryTo <= 0
+          ? 'Укажите верхнюю границу вилки'
+          : null,
+    }
+    if (errors.title !== null || errors.stack !== null || errors.salaryFrom !== null || errors.salaryTo !== null) {
+      setFieldErrors(errors)
+      setFormError('Заполните обязательные поля, отмеченные звёздочкой')
+      return
+    }
+    setFieldErrors(emptyVacancyErrors)
+    if (salaryTo < salaryFrom) {
+      setFieldErrors({ ...emptyVacancyErrors, salaryTo: 'Верхняя граница не может быть меньше нижней' })
+      setFormError('Проверьте зарплатную вилку')
       return
     }
     setIsSubmitting(true)
@@ -441,18 +470,23 @@ export function EmployerVacanciesPage() {
                 <span className="material-symbols-outlined text-[20px]">close</span>
               </button>
             </div>
-            <form className="flex flex-col gap-5 overflow-y-auto p-6" onSubmit={submitVacancy}>
+            <form className="flex flex-col gap-5 overflow-y-auto p-6" noValidate onSubmit={submitVacancy}>
               <div className="flex flex-col gap-1.5">
                 <label className="label-cap" htmlFor="vacancy-title">Название должности *</label>
                 <input
-                  className="field text-[16px] font-medium"
+                  className={`field text-[16px] font-medium ${fieldErrors.title !== null ? 'border-pvn-red/50 ring-1 ring-pvn-red/30' : ''}`}
                   id="vacancy-title"
-                  onChange={(event) => setVacancyForm({ ...vacancyForm, title: event.target.value })}
+                  onChange={(event) => {
+                    setVacancyForm({ ...vacancyForm, title: event.target.value })
+                    setFieldErrors((previous) => ({ ...previous, title: null }))
+                  }}
                   placeholder="Senior Python / Highload Developer"
-                  required
                   type="text"
                   value={vacancyForm.title}
                 />
+                {fieldErrors.title !== null ? (
+                  <span className="font-sans text-[12px] font-semibold text-pvn-red-ink">{fieldErrors.title}</span>
+                ) : null}
               </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="flex flex-col gap-1.5">
@@ -485,14 +519,19 @@ export function EmployerVacanciesPage() {
               <div className="flex flex-col gap-1.5">
                 <label className="label-cap" htmlFor="vacancy-stack">Технологический стек * · через запятую</label>
                 <input
-                  className="field"
+                  className={`field ${fieldErrors.stack !== null ? 'border-pvn-red/50 ring-1 ring-pvn-red/30' : ''}`}
                   id="vacancy-stack"
-                  onChange={(event) => setVacancyForm({ ...vacancyForm, stack: event.target.value })}
+                  onChange={(event) => {
+                    setVacancyForm({ ...vacancyForm, stack: event.target.value })
+                    setFieldErrors((previous) => ({ ...previous, stack: null }))
+                  }}
                   placeholder="Python, FastAPI, PostgreSQL, Kafka, Docker"
-                  required
                   type="text"
                   value={vacancyForm.stack}
                 />
+                {fieldErrors.stack !== null ? (
+                  <span className="font-sans text-[12px] font-semibold text-pvn-red-ink">{fieldErrors.stack}</span>
+                ) : null}
               </div>
               <div className="flex flex-col gap-3 rounded-2xl bg-inset p-4 shadow-inset-sm">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -503,31 +542,41 @@ export function EmployerVacanciesPage() {
                   <span className="stat-pill bg-pvn-blue text-white">Правило платформы</span>
                 </div>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div className="flex items-center rounded-xl bg-raised px-3 shadow-raised-sm focus-within:ring-2 focus-within:ring-pvn-blue/40">
+                  <div className={`flex items-center rounded-xl bg-raised px-3 shadow-raised-sm focus-within:ring-2 focus-within:ring-pvn-blue/40 ${fieldErrors.salaryFrom !== null ? 'ring-2 ring-pvn-red/40' : ''}`}>
                     <span className="font-mono text-[12px] text-ink-muted">от</span>
                     <input
-                      className="w-full bg-transparent px-2 py-2.5 font-mono text-[16px] font-bold text-ink placeholder:font-normal placeholder:italic placeholder:text-ink-muted/45 focus:outline-none"
+                      className="w-full bg-transparent px-2 py-2.5 font-mono text-[16px] font-bold text-ink placeholder:font-normal placeholder:italic placeholder:text-ink-muted/35 focus:outline-none"
                       min={1}
-                      onChange={(event) => setVacancyForm({ ...vacancyForm, salaryFrom: event.target.value })}
-                      placeholder="220 000"
-                      required
+                      onChange={(event) => {
+                        setVacancyForm({ ...vacancyForm, salaryFrom: event.target.value })
+                        setFieldErrors((previous) => ({ ...previous, salaryFrom: null }))
+                      }}
+                      placeholder="например, 220 000"
                       type="number"
                       value={vacancyForm.salaryFrom}
                     />
                   </div>
-                  <div className="flex items-center rounded-xl bg-raised px-3 shadow-raised-sm focus-within:ring-2 focus-within:ring-pvn-blue/40">
+                  <div className={`flex items-center rounded-xl bg-raised px-3 shadow-raised-sm focus-within:ring-2 focus-within:ring-pvn-blue/40 ${fieldErrors.salaryTo !== null ? 'ring-2 ring-pvn-red/40' : ''}`}>
                     <span className="font-mono text-[12px] text-ink-muted">до</span>
                     <input
-                      className="w-full bg-transparent px-2 py-2.5 font-mono text-[16px] font-bold text-ink placeholder:font-normal placeholder:italic placeholder:text-ink-muted/45 focus:outline-none"
+                      className="w-full bg-transparent px-2 py-2.5 font-mono text-[16px] font-bold text-ink placeholder:font-normal placeholder:italic placeholder:text-ink-muted/35 focus:outline-none"
                       min={1}
-                      onChange={(event) => setVacancyForm({ ...vacancyForm, salaryTo: event.target.value })}
-                      placeholder="290 000"
-                      required
+                      onChange={(event) => {
+                        setVacancyForm({ ...vacancyForm, salaryTo: event.target.value })
+                        setFieldErrors((previous) => ({ ...previous, salaryTo: null }))
+                      }}
+                      placeholder="например, 290 000"
                       type="number"
                       value={vacancyForm.salaryTo}
                     />
                   </div>
                 </div>
+                {fieldErrors.salaryFrom !== null ? (
+                  <span className="font-sans text-[12px] font-semibold text-pvn-red-ink">{fieldErrors.salaryFrom}</span>
+                ) : null}
+                {fieldErrors.salaryTo !== null ? (
+                  <span className="font-sans text-[12px] font-semibold text-pvn-red-ink">{fieldErrors.salaryTo}</span>
+                ) : null}
                 <p className="font-sans text-caption text-ink-secondary">
                   Указанная вилка фиксируется на платформе. Предложение кандидату ниже нижней границы недопустимо.
                 </p>

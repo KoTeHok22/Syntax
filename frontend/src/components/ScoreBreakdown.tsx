@@ -11,7 +11,7 @@ export function ScoreBreakdown({ breakdown }: ScoreBreakdownProps) {
   const entries = Object.entries(breakdown)
   if (entries.length === 0) return null
   return (
-    <div className="relative">
+    <div className="flex flex-col gap-2">
       <button
         aria-controls={panelId}
         aria-expanded={isOpen}
@@ -28,28 +28,30 @@ export function ScoreBreakdown({ breakdown }: ScoreBreakdownProps) {
         Что влияет на балл
       </button>
       <div
-        className={`absolute inset-x-0 top-full z-20 mt-2 origin-top rounded-xl border border-ink/10 bg-white p-3 shadow-[0_16px_40px_rgba(15,18,29,0.18)] transition-[opacity,transform] duration-200 ease-out ${
-          isOpen ? 'pointer-events-auto translate-y-0 opacity-100' : 'pointer-events-none -translate-y-1 opacity-0'
+        className={`grid transition-[grid-template-rows,opacity] duration-200 ease-out ${
+          isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
         }`}
         id={panelId}
         role="region"
         aria-hidden={!isOpen}
       >
-        <div className="flex flex-col gap-2.5">
-          {entries.map(([key, component]) => (
-            <div className="flex flex-col gap-1" key={key}>
-              <div className="flex items-baseline justify-between font-mono text-[11px]">
-                <span className="text-ink-secondary">{component.label}</span>
-                <span className="font-bold text-pvn-blue">{Math.round(component.value)}/100</span>
+        <div className="overflow-hidden">
+          <div className="flex flex-col gap-2.5 rounded-xl border border-ink/10 bg-inset p-3">
+            {entries.map(([key, component]) => (
+              <div className="flex flex-col gap-1" key={key}>
+                <div className="flex items-baseline justify-between font-mono text-[11px]">
+                  <span className="text-ink-secondary">{component.label}</span>
+                  <span className="font-bold text-pvn-blue">{Math.round(component.value)}/100</span>
+                </div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-sunken shadow-inset-sm">
+                  <div
+                    className="bar-fill h-full rounded-full bg-pvn-blue"
+                    style={{ width: `${Math.max(0, Math.min(component.value, 100))}%` }}
+                  />
+                </div>
               </div>
-              <div className="h-2 w-full overflow-hidden rounded-full bg-sunken shadow-inset-sm">
-                <div
-                  className="bar-fill h-full rounded-full bg-pvn-blue"
-                  style={{ width: `${Math.max(0, Math.min(component.value, 100))}%` }}
-                />
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
     </div>
