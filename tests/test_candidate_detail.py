@@ -105,7 +105,7 @@ def test_candidate_detail_aggregates_pvn_achievements(client: TestClient):
     response = client.get(f"/employer/candidates/{candidate_id}", headers=auth(employer_token))
     assert response.status_code == 200
     body = response.json()
-    assert body["pvn_achievements"] == [{"type": "хакатон", "level": "победитель"}]
+    assert body["pvn_achievements"] == [{"type": "хакатон", "level": "победитель", "count": 1}]
     assert "2026-03-14" not in response.text
     assert "Лига Уникальных Соревнований" not in response.text
 
