@@ -155,6 +155,18 @@ def build_card(
     )
 
 
+def group_achievements(achievements) -> list[dict]:
+    counts: dict[tuple[str, str], int] = {}
+    for achievement in achievements:
+        key = (achievement.achievement_type, achievement.level)
+        counts[key] = counts.get(key, 0) + 1
+    ordered = sorted(counts.items(), key=lambda item: (-item[1], item[0][0], item[0][1]))
+    return [
+        {"type": key[0], "level": key[1], "count": count}
+        for key, count in ordered
+    ]
+
+
 def build_public_profile(
     db: Session,
     candidate: CandidateProfile,
@@ -196,10 +208,7 @@ def build_public_profile(
         score=score,
         score_breakdown=breakdown,
         match_relevance=relevance,
-        pvn_achievements=[
-            {"type": a.achievement_type, "level": a.level}
-            for a in achievements
-        ],
+        pvn_achievements=group_achievements(achievements),
     )
 
 
@@ -300,14 +309,15 @@ def stack_matches(candidate_stack: list, required_stack: list) -> bool:
     if not required_stack:
         return True
     candidate = [s.strip().lower() for s in (candidate_stack or []) if s and s.strip()]
-    for required in required_stack:
-        for token in str(required).replace(",", " ").split():
-            token = token.strip().lower()
-            if token == '':
-                continue
-            if any(token in skill or skill in token for skill in candidate):
-                return True
-    return False
+    required_tokens = [
+        token
+        for required in required_stack
+        for token in (t.strip().lower() for t in str(required).replace(",", " ").split())
+        if token != ''
+    ]
+    if not required_tokens:
+        return True
+    return any(any(token in skill or skill in token for skill in candidate) for token in required_tokens)
 
 
 @router.get("/categories/{category_id}/cards", response_model=list[CandidateCardResponse])
