@@ -92,9 +92,10 @@ export function EmployerSearchPage() {
   const [minScore, setMinScore] = useState(0)
   const [cards, setCards] = useState<CandidateCardData[]>([])
   const [searchError, setSearchError] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isSearching, setIsSearching] = useState(false)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(false)
+  const hasResultsRef = useRef(false)
   const [inviteCard, setInviteCard] = useState<CandidateCardData | null>(null)
   const [invitationForm, setInvitationForm] = useState<InvitationFormState>(emptyInvitationForm)
   const [invitationFieldErrors, setInvitationFieldErrors] = useState<InvitationFieldErrors>(emptyInvitationErrors)
@@ -182,11 +183,11 @@ export function EmployerSearchPage() {
     const current = filtersRef.current
     const generation = searchGenerationRef.current
     const activeStackFilters = current.stackKey.length > 0 ? current.stackKey.split(',') : []
+    const hasCachedResults = hasResultsRef.current
     if (skip === 0) {
-      setIsLoading(true)
+      setIsSearching(true)
       setIsLoadingMore(false)
-      setCards([])
-      setHasMore(false)
+      if (!hasCachedResults) setHasMore(false)
     } else setIsLoadingMore(true)
     setSearchError(null)
     try {
@@ -210,13 +211,14 @@ export function EmployerSearchPage() {
       if (signal.aborted || generation !== searchGenerationRef.current) return
       setCards((previous) => (skip === 0 ? loaded : [...previous, ...loaded]))
       setHasMore(loaded.length === PAGE_LIMIT)
+      hasResultsRef.current = true
     } catch (exception) {
       if (signal.aborted || generation !== searchGenerationRef.current || (exception instanceof DOMException && exception.name === 'AbortError')) return
       if (exception instanceof ApiError) setSearchError(exception.detail)
       else setSearchError('Не удалось выполнить поиск')
     } finally {
       if (!signal.aborted && generation === searchGenerationRef.current) {
-        setIsLoading(false)
+        setIsSearching(false)
         setIsLoadingMore(false)
       }
     }
@@ -286,6 +288,7 @@ export function EmployerSearchPage() {
   }
 
   const resetFilters = () => {
+    hasResultsRef.current = false
     setVacancyId(undefined)
     setStackFilters([])
     setSelectedDomain(null)
@@ -587,18 +590,22 @@ export function EmployerSearchPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <span className="font-mono text-h2 font-bold text-ink">
-          {isLoading ? 'Поиск…' : `Найдено: ${cards.length}${hasMore ? '+' : ''}`}
+        <span aria-live="polite" className="font-mono text-h2 font-bold text-ink">
+          Найдено: {cards.length}{hasMore ? '+' : ''}
         </span>
         <span className="font-sans text-caption text-ink-secondary">
-          {isLoading
-            ? ''
-            : hasMore
-              ? 'показаны первые — нажмите «Показать ещё», чтобы увидеть остальных'
-              : cards.length === 0
-                ? 'ни один кандидат не подходит под фильтры'
-                : 'кандидатов соответствуют фильтрам'}
+          {hasMore
+            ? 'показаны первые — нажмите «Показать ещё», чтобы увидеть остальных'
+            : cards.length === 0
+              ? 'ни один кандидат не подходит под фильтры'
+              : 'кандидатов соответствуют фильтрам'}
         </span>
+        {isSearching && cards.length > 0 ? (
+          <span className="flex items-center gap-2 font-sans text-caption text-ink-secondary">
+            <span className="material-symbols-outlined animate-spin text-[16px]">progress_activity</span>
+            Уточняем результаты…
+          </span>
+        ) : null}
       </div>
 
       {searchError !== null ? (
@@ -611,14 +618,14 @@ export function EmployerSearchPage() {
         </div>
       ) : null}
 
-      {isLoading ? (
+      {isSearching && cards.length === 0 && searchError === null ? (
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
           <SkeletonCard />
           <SkeletonCard />
           <SkeletonCard />
           <SkeletonCard />
         </div>
-      ) : !isLoading && cards.length === 0 && searchError === null ? (
+      ) : !isSearching && cards.length === 0 && searchError === null ? (
         <div className="flex flex-col items-center gap-3 rounded-panel bg-raised p-12 text-center shadow-raised">
           <span className="material-symbols-outlined text-[40px] text-ink-muted">person_search</span>
           <span className="font-mono text-h2 font-bold text-ink">Ничего не найдено</span>
@@ -646,7 +653,7 @@ export function EmployerSearchPage() {
             Сбросить фильтры
           </button>
         </div>
-      ) : (
+      ) : cards.length > 0 ? (
         <>
           <CardColumns
             columns={2}
@@ -684,7 +691,7 @@ export function EmployerSearchPage() {
             ) : null}
           </div>
         </>
-      )}
+      ) : null}
 
 
 
