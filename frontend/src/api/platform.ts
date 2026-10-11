@@ -161,6 +161,7 @@ export function searchCandidates(
 export interface CandidatePublicProfileAchievement {
   type: string
   level: string
+  count?: number
   date?: string
 }
 

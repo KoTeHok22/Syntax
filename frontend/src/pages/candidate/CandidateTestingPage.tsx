@@ -366,6 +366,7 @@ export function CandidateTestingPage() {
               const isSelected = selectedGrade === option.value
               return (
                 <button
+                  aria-pressed={isSelected}
                   className={`flex flex-col gap-3 rounded-panel p-5 text-left transition-all ${
                     isSelected ? 'bg-raised shadow-raised ring-2 ring-pvn-blue' : 'bg-raised shadow-raised-sm hover:shadow-raised'
                   }`}

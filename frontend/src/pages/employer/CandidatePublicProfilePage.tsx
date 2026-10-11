@@ -168,6 +168,7 @@ export function CandidatePublicProfilePage() {
                     </span>
                     <span className="font-mono text-[12px] text-ink-secondary">
                       {achievement.date !== undefined ? `${achievement.level} · ${formatIsoDate(achievement.date)}` : achievement.level}
+                      {achievement.count !== undefined && achievement.count > 1 ? ` ×${achievement.count}` : ''}
                     </span>
                   </li>
                 ))}
