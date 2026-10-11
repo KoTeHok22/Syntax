@@ -22,6 +22,10 @@ class CandidateProfileUpdate(BaseModel):
     years_of_experience: float = Field(default=0, ge=0)
     soft_skills: list[str] = Field(default_factory=list)
     specialization: Specialization | Literal[""] = ""
+    avatar_data_url: str | None = None
+    avatar_zoom: float | None = Field(default=None, ge=1, le=3)
+    avatar_offset_x: float | None = Field(default=None, ge=-50, le=50)
+    avatar_offset_y: float | None = Field(default=None, ge=-50, le=50)
 
 
 class CandidateGradeUpdate(BaseModel):
@@ -46,6 +50,10 @@ class CandidateProfileResponse(BaseModel):
     is_visible: bool
     score: float = 0.0
     score_breakdown: dict = Field(default_factory=dict)
+    avatar_data_url: str | None = None
+    avatar_zoom: float = 1.0
+    avatar_offset_x: float = 0.0
+    avatar_offset_y: float = 0.0
 
     class Config:
         from_attributes = True

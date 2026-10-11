@@ -83,8 +83,27 @@ async def update_my_candidate_profile(
     profile: CandidateProfile = Depends(get_candidate_profile),
     db: Session = Depends(get_db),
 ):
-    for field, value in request.model_dump().items():
+    payload = request.model_dump()
+    avatar_provided = request.avatar_data_url is not None
+    avatar_data_url = payload.pop("avatar_data_url", None)
+    avatar_zoom = payload.pop("avatar_zoom", None)
+    avatar_offset_x = payload.pop("avatar_offset_x", None)
+    avatar_offset_y = payload.pop("avatar_offset_y", None)
+    for field, value in payload.items():
         setattr(profile, field, value)
+    if avatar_provided:
+        profile.avatar_data_url = validate_logo_data_url(avatar_data_url) if avatar_data_url else None
+        if profile.avatar_data_url is None:
+            profile.avatar_zoom = 1.0
+            profile.avatar_offset_x = 0.0
+            profile.avatar_offset_y = 0.0
+    if profile.avatar_data_url is not None:
+        if avatar_zoom is not None:
+            profile.avatar_zoom = avatar_zoom
+        if avatar_offset_x is not None:
+            profile.avatar_offset_x = avatar_offset_x
+        if avatar_offset_y is not None:
+            profile.avatar_offset_y = avatar_offset_y
     if profile.grade and profile.specialization:
         assign_category(db, profile, profile.specialization, profile.grade)
     await index_candidate(profile)

@@ -4,6 +4,8 @@ import { ApiError } from '../../api/client'
 import { fetchTestSession, fetchTestSessions, startTestSession, submitAnswers } from '../../api/testing'
 import type { AnswerPayload, TestSession, TestSessionResult } from '../../api/testing'
 import { TaskStatement } from '../../components/TaskStatement'
+import { ImageAnnotation } from '../../components/ImageAnnotation'
+import type { AnnotationRect } from '../../components/ImageAnnotation'
 import { Modal } from '../../components/Modal'
 import { gradeLabel } from '../../lib/format'
 
@@ -83,6 +85,8 @@ export function CandidateTestingPage() {
   const [historyLoading, setHistoryLoading] = useState(true)
   const [taskIndex, setTaskIndex] = useState(0)
   const [answers, setAnswers] = useState<Record<number, number>>({})
+  const [annotations, setAnnotations] = useState<Record<number, AnnotationRect | null>>({})
+  const [notes, setNotes] = useState<Record<number, string>>({})
   const [selectedGrade, setSelectedGrade] = useState<string | null>(searchParams.get('grade'))
   const [error, setError] = useState<string | null>(null)
   const [isBusy, setIsBusy] = useState(false)
@@ -119,6 +123,8 @@ export function CandidateTestingPage() {
   const beginSession = (next: TestSession) => {
     setSession(next)
     setAnswers({})
+    setAnnotations({})
+    setNotes({})
     setTaskIndex(0)
     setSelectedGrade(null)
     setError(null)
@@ -158,19 +164,39 @@ export function CandidateTestingPage() {
   const totalTasks = tasks.length
   const isLastTask = taskIndex === totalTasks - 1
 
+  const isAnswered = useCallback(
+    (item: TestSession['tasks'][number]) =>
+      item.task_format === 'design_annotation'
+        ? annotations[item.id] !== null && annotations[item.id] !== undefined && (notes[item.id] ?? '').trim().length > 0
+        : answers[item.id] !== undefined,
+    [annotations, notes, answers],
+  )
+
   const submitSession = useCallback(
-    async (answersSnapshot: Record<number, number>, allowPartial: boolean) => {
+    async (allowPartial: boolean) => {
       if (session === null) return
-      if (!allowPartial && Object.keys(answersSnapshot).length < session.tasks.length) {
+      const answeredCount = session.tasks.filter((item) => isAnswered(item)).length
+      if (!allowPartial && answeredCount < session.tasks.length) {
         setError('Ответьте на все вопросы перед завершением теста')
         return
       }
       setError(null)
       setIsBusy(true)
       try {
-        const payload: AnswerPayload[] = session.tasks
-          .filter((item) => answersSnapshot[item.id] !== undefined)
-          .map((item) => ({ task_id: item.id, option_index: answersSnapshot[item.id] }))
+        const payload: AnswerPayload[] = []
+        session.tasks.forEach((item) => {
+          if (item.task_format === 'design_annotation') {
+            const annotation = annotations[item.id]
+            const note = (notes[item.id] ?? '').trim()
+            if (annotation !== null && annotation !== undefined && note !== '') {
+              payload.push({ task_id: item.id, answer: note, annotation })
+            }
+            return
+          }
+          if (answers[item.id] !== undefined) {
+            payload.push({ task_id: item.id, option_index: answers[item.id] })
+          }
+        })
         const submitted = await submitAnswers(session.id, payload)
         setResult(submitted)
         setScreen('result')
@@ -182,10 +208,10 @@ export function CandidateTestingPage() {
         setIsBusy(false)
       }
     },
-    [session, loadHistory],
+    [session, loadHistory, annotations, notes, answers, isAnswered],
   )
 
-  const finish = () => submitSession(answers, false)
+  const finish = () => submitSession(false)
 
   useEffect(() => {
     if (screen !== 'quiz' || session?.expires_at === null || session?.expires_at === undefined) {
@@ -196,12 +222,12 @@ export function CandidateTestingPage() {
     const tick = () => {
       const left = Math.max(0, Math.round((deadline - Date.now()) / 1000))
       setRemainingSeconds(left)
-      if (left <= 0) void submitSession(answers, true)
+      if (left <= 0) void submitSession(true)
     }
     tick()
     const handle = window.setInterval(tick, 1000)
     return () => window.clearInterval(handle)
-  }, [screen, session?.expires_at, submitSession, answers])
+  }, [screen, session?.expires_at, submitSession])
 
   useEffect(() => {
     if (screen !== 'quiz') {
@@ -374,12 +400,12 @@ export function CandidateTestingPage() {
         <div className="flex flex-col gap-5">
           <div className="flex w-full items-center gap-3 rounded-panel bg-raised px-6 py-4 shadow-raised-sm">
             <div className="flex flex-1 items-center gap-1.5">
-              {tasks.map((_, index) => {
+              {tasks.map((item, index) => {
                 const isCurrent = index === taskIndex
-                const isAnswered = answers[tasks[index].id] !== undefined
+                const answered = isAnswered(item)
                 return (
                   <div
-                    className={`h-2 flex-1 rounded-full transition-colors ${isCurrent ? 'bg-pvn-blue' : isAnswered ? 'bg-good' : 'bg-sunken shadow-inset-sm'}`}
+                    className={`h-2 flex-1 rounded-full transition-colors ${isCurrent ? 'bg-pvn-blue' : answered ? 'bg-good' : 'bg-sunken shadow-inset-sm'}`}
                     key={index}
                   />
                 )
@@ -419,38 +445,59 @@ export function CandidateTestingPage() {
             <h2 className="font-mono text-[15px] font-bold uppercase tracking-wider text-ink-secondary">Задание</h2>
             <TaskStatement statement={task.statement} />
 
-            <div className="flex flex-col gap-3">
-              {task.options.map((option, optionIndex) => {
-                const isSelected = answers[task.id] === optionIndex
-                return (
-                  <label className="relative flex cursor-pointer items-start" key={optionIndex}>
-                    <input
-                      checked={isSelected}
-                      className="sr-only"
-                      name={`answer-${task.id}`}
-                      onChange={() => setAnswers((previous) => ({ ...previous, [task.id]: optionIndex }))}
-                      type="radio"
-                    />
-                    <div
-                      className={`flex w-full items-start gap-4 rounded-xl p-4 transition-all ${
-                        isSelected ? 'bg-inset shadow-inset-sm ring-2 ring-pvn-blue' : 'bg-raised shadow-raised-sm hover:shadow-raised'
-                      }`}
-                    >
-                      <span
-                        className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full transition-all ${
-                          isSelected ? 'bg-pvn-blue' : 'border-2 border-ink/20'
+            {task.task_format === 'design_annotation' && task.image_data_url ? (
+              <div className="flex flex-col gap-4">
+                <ImageAnnotation
+                  onChange={(rect) => setAnnotations((previous) => ({ ...previous, [task.id]: rect }))}
+                  src={task.image_data_url}
+                  value={annotations[task.id] ?? null}
+                />
+                <div className="flex flex-col gap-1.5">
+                  <label className="label-cap" htmlFor={`annotation-${task.id}`}>Что не так с выделенным элементом?</label>
+                  <textarea
+                    className="field min-h-[96px] resize-y"
+                    id={`annotation-${task.id}`}
+                    onChange={(event) => setNotes((previous) => ({ ...previous, [task.id]: event.target.value }))}
+                    placeholder="Опишите, что нарушено и почему это мешает пользователю"
+                    value={notes[task.id] ?? ''}
+                  />
+                  <span className="font-sans text-[12px] text-ink-secondary">Ответ проверит ИИ: важны и выделенная область, и пояснение.</span>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {task.options.map((option, optionIndex) => {
+                  const isSelected = answers[task.id] === optionIndex
+                  return (
+                    <label className="relative flex cursor-pointer items-start" key={optionIndex}>
+                      <input
+                        checked={isSelected}
+                        className="sr-only"
+                        name={`answer-${task.id}`}
+                        onChange={() => setAnswers((previous) => ({ ...previous, [task.id]: optionIndex }))}
+                        type="radio"
+                      />
+                      <div
+                        className={`flex w-full items-start gap-4 rounded-xl p-4 transition-all ${
+                          isSelected ? 'bg-inset shadow-inset-sm ring-2 ring-pvn-blue' : 'bg-raised shadow-raised-sm hover:shadow-raised'
                         }`}
                       >
-                        {isSelected ? <span className="h-2 w-2 rounded-full bg-white" /> : null}
-                      </span>
-                      <span className="font-sans text-[15px] font-medium text-ink">
-                        <span className="font-mono font-bold text-pvn-blue">{OPTION_LETTERS[optionIndex] ?? optionIndex + 1}.</span> {option}
-                      </span>
-                    </div>
-                  </label>
-                )
-              })}
-            </div>
+                        <span
+                          className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full transition-all ${
+                            isSelected ? 'bg-pvn-blue' : 'border-2 border-ink/20'
+                          }`}
+                        >
+                          {isSelected ? <span className="h-2 w-2 rounded-full bg-white" /> : null}
+                        </span>
+                        <span className="font-sans text-[15px] font-medium text-ink">
+                          <span className="font-mono font-bold text-pvn-blue">{OPTION_LETTERS[optionIndex] ?? optionIndex + 1}.</span> {option}
+                        </span>
+                      </div>
+                    </label>
+                  )
+                })}
+              </div>
+            )}
 
             <div className="flex flex-col items-center justify-between gap-4 border-t border-ink/10 pt-5 sm:flex-row">
               <button
@@ -567,6 +614,20 @@ export function CandidateTestingPage() {
                         <span className="font-mono text-[12px] font-bold uppercase tracking-wider text-ink-secondary">Вопрос {index + 1}</span>
                       </div>
                       <TaskStatement statement={item.statement} />
+                      {item.task_format === 'design_annotation' && item.image_data_url ? (
+                        <div className="flex flex-col gap-3">
+                          <img alt="Макет задания" className="w-full max-w-sm rounded-xl shadow-raised-sm" src={item.image_data_url} />
+                          {item.answer_text ? (
+                            <span className="font-sans text-[13px] text-ink">
+                              <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-ink-secondary">Ваше пояснение: </span>
+                              {item.answer_text}
+                            </span>
+                          ) : null}
+                          {item.feedback ? (
+                            <span className="rounded-xl bg-raised px-3 py-2 font-sans text-[13px] text-ink-secondary shadow-raised-sm">{item.feedback}</span>
+                          ) : null}
+                        </div>
+                      ) : (
                       <div className="flex flex-col gap-1.5">
                         {item.options.map((option, optionIndex) => {
                           const isCorrectOption = correct === optionIndex
@@ -586,6 +647,7 @@ export function CandidateTestingPage() {
                           )
                         })}
                       </div>
+                      )}
                     </div>
                   )
                 })}

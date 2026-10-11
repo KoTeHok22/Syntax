@@ -3,7 +3,9 @@ import { get, post } from './client'
 export interface TestTask {
   id: number
   statement: string
+  task_format?: string
   options: string[]
+  image_data_url?: string | null
 }
 
 export type TestSessionStatus = 'active' | 'completed'
@@ -19,6 +21,8 @@ export interface TestSessionApiPayload {
   verdict?: string
   suggested_grade?: string
   expires_at?: string | null
+  created_at?: string | null
+  completed_at?: string | null
 }
 
 export interface TestSession {
@@ -32,6 +36,8 @@ export interface TestSession {
   verdict?: string
   suggested_grade?: string
   expires_at?: string | null
+  created_at?: string | null
+  completed_at?: string | null
 }
 
 function normalizeTestSession(raw: TestSessionApiPayload): TestSession {
@@ -53,7 +59,9 @@ export function fetchTestSession(id: number): Promise<TestSession> {
 
 export interface AnswerPayload {
   task_id: number
-  option_index: number
+  option_index?: number
+  answer?: string
+  annotation?: { x: number; y: number; w: number; h: number }
 }
 
 export interface AnswerReview {
@@ -63,6 +71,10 @@ export interface AnswerReview {
   selected_index: number | null
   reference_answer: number | null
   is_correct: boolean
+  task_format?: string
+  answer_text?: string | null
+  feedback?: string | null
+  image_data_url?: string | null
 }
 
 export interface TestSessionResult {

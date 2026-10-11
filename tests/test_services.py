@@ -316,6 +316,175 @@ def test_designer_test_session_uses_design_concepts(client, monkeypatch):
     assert used_names <= design_names
 
 
+def test_design_annotation_task_renders_image_and_grades_with_region(client, monkeypatch):
+    from backend.core.config import get_settings
+    from backend.api.routes import test_sessions
+
+    settings = get_settings()
+    monkeypatch.setattr(settings, "html_render_enabled", True, raising=False)
+    monkeypatch.setattr(settings, "tasks_per_session", 4, raising=False)
+
+    from backend.db import SessionLocal
+
+    db = SessionLocal()
+    seed_concept_bank(db)
+    db.close()
+
+    registered = client.post(
+        "/auth/register",
+        json={
+            "email": "annotator@example.com",
+            "password": "password123",
+            "role": "candidate",
+            "specialization": "design",
+            "grade": "junior",
+            "consent_accepted": True,
+        },
+    )
+    assert registered.status_code == 201
+    assert client.get(registered.json()["confirmation_url"]).status_code == 200
+    token = client.post(
+        "/auth/login", data={"username": "annotator@example.com", "password": "password123"}
+    ).json()["access_token"]
+
+    session = client.post("/test-sessions", json={"grade": "junior"}, headers=auth(token))
+    assert session.status_code == 201
+    tasks = session.json()["tasks"]
+    annotation_tasks = [task for task in tasks if task["task_format"] == "design_annotation"]
+    if not annotation_tasks:
+        import pytest
+
+        pytest.skip("HTML-рендерер недоступен в окружении теста")
+    annotation = annotation_tasks[0]
+    assert annotation["image_data_url"].startswith("data:image/png;base64,")
+
+    payload = []
+    for task in tasks:
+        if task["task_format"] == "design_annotation":
+            payload.append(
+                {
+                    "task_id": task["id"],
+                    "answer": "Элемент выделен неверно",
+                    "annotation": {"x": 0.01, "y": 0.01, "w": 0.02, "h": 0.02},
+                }
+            )
+        else:
+            payload.append({"task_id": task["id"], "option_index": 0})
+
+    result = client.post(f"/test-sessions/{session.json()['id']}/answers", json=payload, headers=auth(token))
+    assert result.status_code == 200
+    body = result.json()
+    reviewed = {item["task_id"]: item for item in body["review"]}
+    assert reviewed[annotation["id"]]["task_format"] == "design_annotation"
+    assert reviewed[annotation["id"]]["is_correct"] is False
+
+
+def test_design_annotation_grades_correct_region_as_correct(client, monkeypatch):
+    from backend.core.config import get_settings
+    from backend.db import SessionLocal
+    from backend.models import Task
+
+    settings = get_settings()
+    monkeypatch.setattr(settings, "html_render_enabled", True, raising=False)
+
+    db = SessionLocal()
+    seed_concept_bank(db)
+    db.close()
+
+    registered = client.post(
+        "/auth/register",
+        json={
+            "email": "annotator-ok@example.com",
+            "password": "password123",
+            "role": "candidate",
+            "specialization": "design",
+            "grade": "junior",
+            "consent_accepted": True,
+        },
+    )
+    assert registered.status_code == 201
+    assert client.get(registered.json()["confirmation_url"]).status_code == 200
+    token = client.post(
+        "/auth/login", data={"username": "annotator-ok@example.com", "password": "password123"}
+    ).json()["access_token"]
+
+    session = client.post("/test-sessions", json={"grade": "junior"}, headers=auth(token)).json()
+    annotation = next((task for task in session["tasks"] if task["task_format"] == "design_annotation"), None)
+    if annotation is None:
+        import pytest
+
+        pytest.skip("HTML-рендерер недоступен в окружении теста")
+
+    db = SessionLocal()
+    region = db.query(Task).filter(Task.id == annotation["id"]).first().reference_answer["region"]
+    db.close()
+    cx = region["x"] + region["w"] / 2
+    cy = region["y"] + region["h"] / 2
+    payload = []
+    for task in session["tasks"]:
+        if task["task_format"] == "design_annotation":
+            payload.append(
+                {
+                    "task_id": task["id"],
+                    "answer": "Элемент выделен, пояснение по существу нарушения",
+                    "annotation": {"x": max(0.0, cx - 0.03), "y": max(0.0, cy - 0.03), "w": 0.06, "h": 0.06},
+                }
+            )
+        else:
+            payload.append({"task_id": task["id"], "option_index": 0})
+
+    body = client.post(f"/test-sessions/{session['id']}/answers", json=payload, headers=auth(token)).json()
+    reviewed = {item["task_id"]: item for item in body["review"]}
+    assert reviewed[annotation["id"]]["is_correct"] is True
+    assert reviewed[annotation["id"]]["image_data_url"].startswith("data:image/png;base64,")
+
+
+def test_design_session_without_renderer_omits_annotation_tasks(client, monkeypatch):
+    from backend.core.config import get_settings
+    from backend.api.routes import test_sessions
+
+    class Draft:
+        statement = "Дизайн-вопрос"
+        task_format = "design_choice"
+        options = ["верно", "неверно", "тоже нет", "мимо"]
+        reference_answer = 0
+
+    async def fake_llm_task(concept, grade):
+        return Draft()
+
+    settings = get_settings()
+    monkeypatch.setattr(settings, "html_render_enabled", False, raising=False)
+    monkeypatch.setattr(settings, "tasks_per_session", 4, raising=False)
+    monkeypatch.setattr(test_sessions, "llm_task", fake_llm_task)
+
+    from backend.db import SessionLocal
+
+    db = SessionLocal()
+    seed_concept_bank(db)
+    db.close()
+
+    registered = client.post(
+        "/auth/register",
+        json={
+            "email": "designer2@example.com",
+            "password": "password123",
+            "role": "candidate",
+            "specialization": "design",
+            "grade": "junior",
+            "consent_accepted": True,
+        },
+    )
+    assert registered.status_code == 201
+    assert client.get(registered.json()["confirmation_url"]).status_code == 200
+    token = client.post(
+        "/auth/login", data={"username": "designer2@example.com", "password": "password123"}
+    ).json()["access_token"]
+
+    session = client.post("/test-sessions", json={"grade": "junior"}, headers=auth(token))
+    assert session.status_code == 201
+    assert all(task["task_format"] != "design_annotation" for task in session.json()["tasks"])
+
+
 def test_profile_pdf_localizes_enums_and_does_not_duplicate_grade():
     from pypdf import PdfReader
 

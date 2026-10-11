@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { fetchEmployerProfile } from '../api/platform'
+import { fetchCandidateProfile } from '../api/auth'
 import { BrandLockup } from './Brand'
 import { ConfirmDialog } from './ConfirmDialog'
 import { isGenerationBusy } from '../lib/generationGuard'
@@ -37,28 +38,58 @@ export function Header() {
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (user === null || user.role !== 'employer') return
-    fetchEmployerProfile()
-      .then((profile) => {
-        setCompanyName(profile.company_name.trim() || null)
-        setLogo(
-          profile.logo_data_url !== null
-            ? {
-                src: profile.logo_data_url,
-                crop: { zoom: profile.logo_zoom, offsetX: profile.logo_offset_x, offsetY: profile.logo_offset_y },
-              }
-            : null,
-        )
-      })
-      .catch(() => {
-        setCompanyName(null)
-        setLogo(null)
-      })
+    if (user === null) return
+    let cancelled = false
+    const loadProfile = () => {
+      if (user.role === 'employer') {
+        fetchEmployerProfile()
+          .then((profile) => {
+            if (cancelled) return
+            setCompanyName(profile.company_name.trim() || null)
+            setLogo(
+              profile.logo_data_url !== null
+                ? {
+                    src: profile.logo_data_url,
+                    crop: { zoom: profile.logo_zoom, offsetX: profile.logo_offset_x, offsetY: profile.logo_offset_y },
+                  }
+                : null,
+            )
+          })
+          .catch(() => {
+            if (cancelled) return
+            setCompanyName(null)
+            setLogo(null)
+          })
+        return
+      }
+      fetchCandidateProfile()
+        .then((profile) => {
+          if (cancelled) return
+          setCompanyName(null)
+          setLogo(
+            profile.avatar_data_url !== null
+              ? {
+                  src: profile.avatar_data_url,
+                  crop: { zoom: profile.avatar_zoom, offsetX: profile.avatar_offset_x, offsetY: profile.avatar_offset_y },
+                }
+              : null,
+          )
+        })
+        .catch(() => {
+          if (!cancelled) setLogo(null)
+        })
+    }
+    loadProfile()
+    window.addEventListener('syntax:profile-updated', loadProfile)
+    return () => {
+      cancelled = true
+      window.removeEventListener('syntax:profile-updated', loadProfile)
+    }
   }, [user])
 
   const renderAvatar = (size: number) =>
-    logo !== null && user?.role === 'employer' ? (
-      <LogoAvatar alt={companyName ?? 'Логотип компании'} crop={logo.crop} size={size} src={logo.src} />
+    logo !== null ? (
+      <LogoAvatar alt={user?.role === 'employer' ? companyName ?? 'Логотип компании' : 'Аватар'} crop={logo.crop} size={size} src={logo.src} />
     ) : (
       <span
         className="flex shrink-0 items-center justify-center rounded-full bg-pvn-blue font-mono font-bold text-white"

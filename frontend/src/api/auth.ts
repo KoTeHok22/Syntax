@@ -58,6 +58,10 @@ export interface CandidateProfile {
   grade_valid_until: string | null
   score: number
   score_breakdown: Record<string, { label: string; value: number; weight: number }>
+  avatar_data_url: string | null
+  avatar_zoom: number
+  avatar_offset_x: number
+  avatar_offset_y: number
 }
 
 export function fetchCandidateProfile(): Promise<CandidateProfile> {

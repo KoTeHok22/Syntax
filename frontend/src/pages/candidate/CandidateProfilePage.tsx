@@ -4,7 +4,25 @@ import { ApiError } from '../../api/client'
 import { downloadProfilePdf, uploadResume, anonymousCandidateId } from '../../api/platform'
 import { fetchCandidateProfile, updateCandidateProfile, updateGrade, updateVisibility } from '../../api/auth'
 import type { CandidateProfile } from '../../api/auth'
-import { formatExperience, formatNumberInput, gradeLabel } from '../../lib/format'
+import { fetchTestSessions } from '../../api/testing'
+import type { TestSession } from '../../api/testing'
+import { formatExperience, formatIsoDate, formatNumberInput, gradeLabel } from '../../lib/format'
+import { LogoAvatar } from '../../components/LogoAvatar'
+import { LogoCropEditor } from '../../components/LogoCropEditor'
+import { DEFAULT_LOGO_CROP } from '../../lib/logoCrop'
+import type { LogoCrop } from '../../lib/logoCrop'
+
+const AVATAR_ALLOWED_MIME = ['image/png', 'image/jpeg', 'image/webp']
+const AVATAR_MAX_BYTES = 512 * 1024
+
+function readAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(file)
+  })
+}
 
 const specializations = ['backend', 'frontend', 'data', 'devops', 'mobile', 'qa', 'design']
 const grades = ['junior', 'middle', 'senior']
@@ -70,6 +88,10 @@ export function CandidateProfilePage() {
   const [skillInput, setSkillInput] = useState('')
   const [isSkillBusy, setIsSkillBusy] = useState(false)
   const [skillError, setSkillError] = useState<string | null>(null)
+  const [avatarDataUrl, setAvatarDataUrl] = useState<string | null>(null)
+  const [avatarCrop, setAvatarCrop] = useState<LogoCrop>(DEFAULT_LOGO_CROP)
+  const [avatarError, setAvatarError] = useState<string | null>(null)
+  const [sessions, setSessions] = useState<TestSession[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const closePreview = useCallback(() => {
@@ -95,6 +117,17 @@ export function CandidateProfilePage() {
       const loaded = await fetchCandidateProfile()
       setProfile(loaded)
       setGradeValue(loaded.grade ?? '')
+      setAvatarDataUrl(loaded.avatar_data_url)
+      setAvatarCrop({
+        zoom: loaded.avatar_zoom ?? DEFAULT_LOGO_CROP.zoom,
+        offsetX: loaded.avatar_offset_x ?? DEFAULT_LOGO_CROP.offsetX,
+        offsetY: loaded.avatar_offset_y ?? DEFAULT_LOGO_CROP.offsetY,
+      })
+      try {
+        setSessions(await fetchTestSessions())
+      } catch {
+        setSessions([])
+      }
     } catch (exception) {
       if (exception instanceof ApiError) setError(exception.detail)
       else setError('Не удалось связаться с сервером')
@@ -138,15 +171,41 @@ export function CandidateProfilePage() {
         years_of_experience: years,
         soft_skills: form.soft_skills.split(',').map((item) => item.trim()).filter((item) => item !== ''),
         contacts: Object.keys(contacts).length > 0 ? contacts : null,
+        avatar_data_url: avatarDataUrl ?? '',
+        avatar_zoom: avatarCrop.zoom,
+        avatar_offset_x: avatarCrop.offsetX,
+        avatar_offset_y: avatarCrop.offsetY,
       })
       setProfile(updated)
       setGradeValue(updated.grade ?? '')
       setIsEditing(false)
+      window.dispatchEvent(new Event('syntax:profile-updated'))
     } catch (exception) {
       if (exception instanceof ApiError) setFormError(exception.detail)
       else setFormError('Не удалось связаться с сервером')
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  const handleAvatarChange = async (event: { target: HTMLInputElement }) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (file === undefined) return
+    setAvatarError(null)
+    if (!AVATAR_ALLOWED_MIME.includes(file.type)) {
+      setAvatarError('Допустимы только PNG, JPEG и WebP')
+      return
+    }
+    if (file.size > AVATAR_MAX_BYTES) {
+      setAvatarError('Файл больше 512 КБ')
+      return
+    }
+    try {
+      setAvatarDataUrl(await readAsDataUrl(file))
+      setAvatarCrop(DEFAULT_LOGO_CROP)
+    } catch {
+      setAvatarError('Не удалось прочитать файл')
     }
   }
 
@@ -309,9 +368,22 @@ export function CandidateProfilePage() {
         <section className="flex flex-col gap-5 xl:col-span-8">
           <div className="flex flex-col gap-5 rounded-panel bg-raised p-6 shadow-raised sm:flex-row sm:items-center">
             <div className="flex min-w-0 flex-1 items-center gap-5">
-              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-inset shadow-inset-sm">
-                <span className="material-symbols-outlined text-[32px] text-ink-muted">person</span>
-              </div>
+              <span className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-inset shadow-inset-sm">
+                {profile.avatar_data_url !== null ? (
+                  <LogoAvatar
+                    alt="Аватар кандидата"
+                    crop={isEditing ? avatarCrop : {
+                      zoom: profile.avatar_zoom ?? 1,
+                      offsetX: profile.avatar_offset_x ?? 0,
+                      offsetY: profile.avatar_offset_y ?? 0,
+                    }}
+                    size={64}
+                    src={profile.avatar_data_url}
+                  />
+                ) : (
+                  <span className="material-symbols-outlined text-[32px] text-ink-muted">person</span>
+                )}
+              </span>
               <div className="min-w-0 flex-1">
                 <h2 className="font-mono text-[22px] font-extrabold tracking-tight text-ink">
                   {profile.full_name ?? 'Без имени'}
@@ -348,6 +420,35 @@ export function CandidateProfilePage() {
                 }}
               >
                 <span className="label-cap">Полные данные</span>
+                <div className="flex flex-col gap-3 rounded-2xl bg-inset p-4 shadow-inset-sm">
+                  <span className="font-mono text-[13px] font-bold text-ink">Аватар</span>
+                  <div className="flex flex-wrap items-center gap-4">
+                    <span className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-raised shadow-raised-sm">
+                      {avatarDataUrl !== null ? (
+                        <LogoAvatar alt="Аватар кандидата" crop={avatarCrop} size={64} src={avatarDataUrl} />
+                      ) : (
+                        <span className="material-symbols-outlined text-[28px] text-ink-muted">person</span>
+                      )}
+                    </span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="btn-ghost cursor-pointer py-2 text-[13px]">
+                        <span className="material-symbols-outlined text-[18px]">upload</span>
+                        {avatarDataUrl !== null ? 'Заменить' : 'Загрузить'}
+                        <input accept="image/png,image/jpeg,image/webp" className="sr-only" onChange={(event) => void handleAvatarChange(event)} type="file" />
+                      </label>
+                      {avatarDataUrl !== null ? (
+                        <button className="btn-ghost py-2 text-[13px]" onClick={() => { setAvatarDataUrl(null); setAvatarCrop(DEFAULT_LOGO_CROP) }} type="button">Удалить</button>
+                      ) : null}
+                    </div>
+                  </div>
+                  <span className="font-sans text-caption text-ink-secondary">PNG, JPEG или WebP, до 512 КБ.</span>
+                  {avatarDataUrl !== null ? (
+                    <div className="rounded-xl bg-raised p-4 shadow-raised-sm">
+                      <LogoCropEditor crop={avatarCrop} onChange={setAvatarCrop} src={avatarDataUrl} />
+                    </div>
+                  ) : null}
+                  {avatarError !== null ? <span className="font-sans text-caption text-pvn-red-ink">{avatarError}</span> : null}
+                </div>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div className="flex flex-col gap-1.5">
                     <label className="label-cap" htmlFor="profile-full-name">ФИО</label>
@@ -520,6 +621,73 @@ export function CandidateProfilePage() {
                       <span>{gradeError}</span>
                     </div>
                   ) : null}
+                </>
+              )
+            })()}
+          </div>
+
+          <div className="flex flex-col gap-4 rounded-panel bg-raised p-6 shadow-raised">
+            <h2 className="flex items-center gap-2 font-mono text-label uppercase tracking-wider text-ink">
+              <span className="material-symbols-outlined text-[20px] text-pvn-blue">quiz</span>
+              Тестирование
+            </h2>
+            {(() => {
+              const completed = sessions.filter((item) => item.status === 'completed')
+              const best = completed.reduce<number | null>((acc, item) => {
+                if (typeof item.result_score !== 'number') return acc
+                return acc === null ? item.result_score : Math.max(acc, item.result_score)
+              }, null)
+              if (completed.length === 0) {
+                return (
+                  <div className="flex flex-col gap-3 rounded-xl bg-inset p-4 shadow-inset-sm sm:flex-row sm:items-center sm:justify-between">
+                    <span className="font-sans text-caption text-ink-secondary">Вы ещё не проходили тестирование. Результат появится здесь и попадёт в балл ПВН.</span>
+                    <button className="btn-blue shrink-0 py-2 text-[13px]" onClick={() => navigate('/candidate/testing')} type="button">
+                      <span className="material-symbols-outlined text-[18px]">play_arrow</span>
+                      Пройти тест
+                    </button>
+                  </div>
+                )
+              }
+              return (
+                <>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className={`stat-pill ${profile.grade_confirmed ? 'bg-good/15 text-good-ink' : 'bg-warn/15 text-warn-ink'}`}>
+                      {profile.grade_confirmed ? 'Грейд подтверждён тестом' : 'Грейд не подтверждён тестом'}
+                    </span>
+                    {best !== null ? (
+                      <span className="stat-pill bg-pvn-blue/10 text-pvn-blue">Лучший результат: {best} / 100</span>
+                    ) : null}
+                    <span className="stat-pill bg-sunken text-ink-secondary">Сессий завершено: {completed.length}</span>
+                  </div>
+                  <div className="flex flex-col divide-y divide-ink/10">
+                    {sessions.map((item) => {
+                      const passed = typeof item.result_score === 'number' && item.verdict !== 'suggest_lower'
+                      return (
+                        <div className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0" key={item.id}>
+                          <div className="flex flex-col">
+                            <span className="font-mono text-[13px] font-semibold uppercase tracking-wider text-ink">{gradeLabel(item.grade)}</span>
+                            <span className="font-sans text-caption text-ink-secondary">
+                              {item.status === 'completed'
+                                ? `${item.correct_count ?? 0} из ${item.task_count} верно${item.completed_at ? ` · ${formatIsoDate(item.completed_at)}` : ''}`
+                                : 'В процессе · незавершённый тест'}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            {typeof item.result_score === 'number' ? (
+                              <span className={`font-mono text-[15px] font-bold ${passed ? 'text-good-ink' : 'text-pvn-red-ink'}`}>{item.result_score} / 100</span>
+                            ) : null}
+                            <span className={`stat-pill ${item.status === 'completed' ? 'bg-good/15 text-good-ink' : 'bg-pvn-blue/10 text-pvn-blue'}`}>
+                              {item.status === 'completed' ? 'Завершена' : 'В процессе'}
+                            </span>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <button className="btn-ghost self-start py-2 text-[13px]" onClick={() => navigate('/candidate/testing')} type="button">
+                    <span className="material-symbols-outlined text-[18px]">history</span>
+                    Открыть тестирование
+                  </button>
                 </>
               )
             })()}

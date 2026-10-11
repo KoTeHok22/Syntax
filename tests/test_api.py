@@ -800,7 +800,7 @@ def seed_concept_bank(db) -> None:
                 domain=entry["domain"],
                 grade=entry["grade"],
                 difficulty_params=entry["params"],
-                task_format="multiple_choice",
+                task_format=entry.get("format", "design_choice" if entry["domain"] == "design" else "multiple_choice"),
                 question_template=entry["question"],
                 correct_answer=entry["correct"],
                 distractors=entry["distractors"],

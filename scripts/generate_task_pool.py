@@ -18,7 +18,7 @@ def generate_pool() -> int:
                 db.add(TC(label=label))
             db.commit()
             context_labels = [row.label for row in db.query(TaskContext).all()]
-        concepts = db.query(Concept).all()
+        concepts = db.query(Concept).filter(Concept.task_format != "design_annotation").all()
         for concept in concepts:
             existing = (
                 db.query(Task)

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, UniqueConstraint, func
+from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.db import Base
@@ -38,6 +38,8 @@ class Task(Base):
     task_format: Mapped[str] = mapped_column(String(32))
     options: Mapped[list] = mapped_column(JSON, default=list)
     reference_answer: Mapped[str] = mapped_column(JSON)
+    image_data_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    flaw_hint: Mapped[str | None] = mapped_column(Text, nullable=True)
     candidate_profile_id: Mapped[int | None] = mapped_column(ForeignKey("candidate_profiles.id"), nullable=True)
     session_id: Mapped[int | None] = mapped_column(ForeignKey("test_sessions.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
