@@ -14,10 +14,14 @@ from backend.schemas.auth import (
     EmailConfirmResponse,
     RegisterRequest,
     RegisterResponse,
+    ResendConfirmationRequest,
+    ResendConfirmationResponse,
     TokenResponse,
     UserResponse,
 )
-from backend.services.email import send_confirmation_email
+from backend.services.email import confirmation_url, send_confirmation_email
+
+RESEND_NEUTRAL_MESSAGE = "Если аккаунт существует и требует подтверждения, письмо отправлено повторно"
 
 router = APIRouter()
 
@@ -68,7 +72,6 @@ def register(request: RegisterRequest, db: Session = Depends(get_db)):
         db.add(EmployerProfile(user_id=user.id))
     db.commit()
     delivered = send_confirmation_email(user.email, user.email_confirmation_token)
-    from backend.services.email import confirmation_url
 
     return RegisterResponse(
         id=user.id,
@@ -89,6 +92,21 @@ def confirm_email(token: str, db: Session = Depends(get_db)):
     user.email_confirmation_token = None
     db.commit()
     return EmailConfirmResponse(email=user.email, is_email_confirmed=True)
+
+
+@router.post("/resend-confirmation", response_model=ResendConfirmationResponse)
+def resend_confirmation(request: ResendConfirmationRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == request.email).first()
+    if user is None or user.is_email_confirmed:
+        return ResendConfirmationResponse(message=RESEND_NEUTRAL_MESSAGE)
+    if user.email_confirmation_token is None:
+        user.email_confirmation_token = secrets.token_urlsafe(32)
+        db.commit()
+    delivered = send_confirmation_email(user.email, user.email_confirmation_token)
+    return ResendConfirmationResponse(
+        message=RESEND_NEUTRAL_MESSAGE,
+        confirmation_url=None if delivered else confirmation_url(user.email_confirmation_token),
+    )
 
 
 @router.post("/login", response_model=TokenResponse)

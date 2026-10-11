@@ -29,6 +29,15 @@ class EmailConfirmResponse(BaseModel):
     is_email_confirmed: bool
 
 
+class ResendConfirmationRequest(BaseModel):
+    email: EmailStr
+
+
+class ResendConfirmationResponse(BaseModel):
+    message: str
+    confirmation_url: str | None = None
+
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"

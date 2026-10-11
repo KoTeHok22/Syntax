@@ -1,11 +1,18 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
-import { ApiError } from '../api/client'
+import { ApiError, post } from '../api/client'
 import { BrandLockup } from '../components/Brand'
 import { gradeLabel, specializationLabel } from '../lib/format'
 
 type Mode = 'login' | 'register'
+
+function confirmationLink(url: string | null): string | null {
+  if (url === null) return null
+  const token = url.split('/').filter((part) => part !== '').pop()
+  if (token === undefined) return null
+  return `/auth/confirm/${token}`
+}
 
 const FALLBACK_SPECIALIZATIONS = ['backend', 'frontend', 'data', 'devops', 'mobile', 'qa', 'design'] as const
 const GRADE_OPTIONS = ['junior', 'middle', 'senior'] as const
@@ -64,6 +71,10 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [needsConfirmation, setNeedsConfirmation] = useState(false)
+  const [resendNotice, setResendNotice] = useState<string | null>(null)
+  const [resendUrl, setResendUrl] = useState<string | null>(null)
+  const [isResending, setIsResending] = useState(false)
   const [sessionExpired] = useState(searchParams.get('expired') === '1')
 
   useEffect(() => {
@@ -77,6 +88,9 @@ export function LoginPage() {
     setMode(next)
     setError(null)
     setInfo(null)
+    setNeedsConfirmation(false)
+    setResendNotice(null)
+    setResendUrl(null)
   }
 
   const hero = HERO_CONTENT[role]
@@ -87,6 +101,9 @@ export function LoginPage() {
     event.preventDefault()
     setError(null)
     setInfo(null)
+    setNeedsConfirmation(false)
+    setResendNotice(null)
+    setResendUrl(null)
     if (email.trim() === '') {
       setError('Укажите email')
       return
@@ -117,7 +134,7 @@ export function LoginPage() {
         const user = await login(email, password)
         navigate(user.role === 'employer' ? '/employer' : '/candidate', { replace: true })
       } else {
-        await register(
+        const created = await register(
           email,
           password,
           role,
@@ -125,13 +142,38 @@ export function LoginPage() {
           role === 'candidate' ? { specialization, grade } : undefined,
         )
         setInfo('Аккаунт создан. Проверьте почту — мы отправили ссылку для подтверждения.')
+        setNeedsConfirmation(true)
+        setResendUrl(confirmationLink(created.confirmation_url))
         setMode('login')
       }
+    } catch (exception) {
+      if (exception instanceof ApiError) {
+        setError(exception.detail)
+        if (exception.status === 403) setNeedsConfirmation(true)
+      } else setError('Не удалось связаться с сервером')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const onResend = async () => {
+    setError(null)
+    setResendNotice(null)
+    setResendUrl(null)
+    if (email.trim() === '') {
+      setError('Укажите email, указанный при регистрации')
+      return
+    }
+    setIsResending(true)
+    try {
+      const result = await post<{ message: string; confirmation_url: string | null }>('/auth/resend-confirmation', { email })
+      setResendNotice(result.message)
+      setResendUrl(confirmationLink(result.confirmation_url))
     } catch (exception) {
       if (exception instanceof ApiError) setError(exception.detail)
       else setError('Не удалось связаться с сервером')
     } finally {
-      setIsSubmitting(false)
+      setIsResending(false)
     }
   }
 
@@ -304,6 +346,33 @@ export function LoginPage() {
             ) : null}
             {info !== null ? (
               <div className="break-all rounded-xl bg-pvn-blue/10 px-4 py-3 font-sans text-caption text-pvn-blue">{info}</div>
+            ) : null}
+
+            {mode === 'login' && needsConfirmation ? (
+              <div className="flex flex-col gap-3 rounded-xl bg-inset px-4 py-3 shadow-inset-sm">
+                <p className="font-sans text-caption leading-snug text-ink-secondary">
+                  Не пришло письмо? Отправим ссылку для подтверждения ещё раз.
+                </p>
+                <button
+                  className="self-start rounded-full bg-pvn-blue px-4 py-2 font-mono text-[12px] font-bold text-white shadow-blue disabled:opacity-60"
+                  disabled={isResending}
+                  onClick={onResend}
+                  type="button"
+                >
+                  {isResending ? 'Отправляем…' : 'Отправить письмо повторно'}
+                </button>
+                {resendNotice !== null ? (
+                  <p className="font-sans text-caption leading-snug text-ink-secondary">{resendNotice}</p>
+                ) : null}
+                {resendUrl !== null ? (
+                  <Link
+                    className="self-start font-mono text-[12px] font-bold text-pvn-blue underline"
+                    to={resendUrl}
+                  >
+                    Подтвердить сейчас
+                  </Link>
+                ) : null}
+              </div>
             ) : null}
 
             <button className="btn-primary mt-2 w-full py-4 text-[16px]" disabled={isSubmitting} type="submit">
