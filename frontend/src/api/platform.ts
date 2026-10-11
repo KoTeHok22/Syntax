@@ -36,6 +36,12 @@ export interface CandidateCard {
     stack_weight: number
     semantic_weight: number
     relevance: number
+    overlap?: {
+      required_total: number
+      matched_total: number
+      matched: string[]
+      missing: string[]
+    }
   }
 }
 

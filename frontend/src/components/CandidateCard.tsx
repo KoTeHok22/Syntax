@@ -3,6 +3,40 @@ import type { CandidateCard as CandidateCardData } from '../api/platform'
 import { ScoreBreakdown } from './ScoreBreakdown'
 import { gradeLabel, specializationLabel, formatIsoDate } from '../lib/format'
 
+function explainMatch(card: CandidateCardData): string[] {
+  const match = card.match_breakdown
+  const reasons: string[] = []
+  const overlap = match?.overlap
+  if (overlap && overlap.required_total > 0) {
+    if (overlap.matched_total === 0) {
+      reasons.push('Ни один навык вакансии не совпал напрямую')
+    } else if (overlap.matched_total === overlap.required_total) {
+      reasons.push(`Совпали все навыки вакансии (${overlap.matched_total} из ${overlap.required_total})`)
+    } else {
+      reasons.push(`Совпало ${overlap.matched_total} из ${overlap.required_total} навыков вакансии`)
+    }
+    if (overlap.missing.length > 0 && overlap.missing.length <= 3) {
+      reasons.push(`Не хватает: ${overlap.missing.join(', ')}`)
+    }
+  }
+  if (match?.mode === 'semantic' && match.semantic !== null) {
+    const percent = Math.round(match.semantic * 100)
+    reasons.push(percent >= 60 ? `Опыт семантически близок к вакансии (${percent}%)` : `Опыт умеренно близок к вакансии (${percent}%)`)
+  } else if (match?.mode === 'lexical') {
+    reasons.push('Сравнение только по технологиям: описание опыта недоступно')
+  }
+  if (card.has_pvn_history) {
+    reasons.push('Есть подтверждённые достижения ПВН')
+  }
+  if (card.is_pvn_verified) {
+    reasons.push('Указан подтверждённый ПВН ID')
+  }
+  if (reasons.length === 0) {
+    reasons.push('Недостаточно данных для объяснения совпадения')
+  }
+  return reasons
+}
+
 interface CandidateCardProps {
   card: CandidateCardData
   onInvite: (card: CandidateCardData) => void
@@ -14,6 +48,7 @@ export function CandidateCard({ card, onInvite, relevanceLabel = 'Совпаде
   const stack = card.stack.slice(0, 8)
   const match = card.match_breakdown
   const relevancePercent = Math.round(Math.max(0, Math.min(card.match_relevance, 1)) * 100)
+  const reasons = explainMatch(card)
   return (
     <article className="card-enter group relative flex h-full flex-col gap-4 rounded-panel border border-ink/5 bg-raised p-6 shadow-raised transition-[box-shadow,transform] duration-300 ease-out hover:-translate-y-0.5 hover:shadow-raised-lg">
       <header className="flex items-start justify-between gap-4">
@@ -70,6 +105,18 @@ export function CandidateCard({ card, onInvite, relevanceLabel = 'Совпаде
 
       <div className="mt-auto flex flex-col gap-4">
         <ScoreBreakdown breakdown={card.score_breakdown} />
+
+        <div className="flex flex-col gap-2">
+          <span className="font-mono text-[11px] uppercase tracking-wider text-ink-secondary">Почему этот кандидат</span>
+          <ul className="flex flex-col gap-1.5">
+            {reasons.map((reason) => (
+              <li className="flex items-start gap-2 font-sans text-caption text-ink" key={reason}>
+                <span className="material-symbols-outlined mt-0.5 text-[15px] leading-none text-pvn-blue">check_circle</span>
+                <span>{reason}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
 
         <div className="flex flex-col gap-2">
           <div className="flex items-baseline justify-between font-mono text-[11px] uppercase tracking-wider text-ink-secondary">

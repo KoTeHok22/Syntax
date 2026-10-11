@@ -126,7 +126,9 @@ def test_session_uses_llm_draft(monkeypatch, client):
     session = client.post("/test-sessions", json={"grade": "junior"}, headers=auth(candidate_token))
     assert session.status_code == 201
     tasks = session.json()["tasks"]
-    assert len(tasks) == 5
+    from backend.core.config import get_settings
+
+    assert len(tasks) == get_settings().tasks_per_session
     assert all(task["statement"] == "LLM-задача про концепт" for task in tasks)
 
 

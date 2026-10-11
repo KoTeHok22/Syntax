@@ -193,6 +193,58 @@ def list_category_cards(
     return cards[skip : skip + limit]
 
 
+def resolve_vacancy(db: Session, user: User, vacancy_id: int | None) -> Vacancy | None:
+    if vacancy_id is None:
+        return None
+    vacancy = db.get(Vacancy, vacancy_id)
+    employer = db.query(EmployerProfile).filter(EmployerProfile.user_id == user.id).first()
+    if vacancy is None or employer is None or vacancy.employer_profile_id != employer.id:
+        raise HTTPException(status_code=404, detail="Вакансия не найдена")
+    return vacancy
+
+
+def filter_by_specialization(db: Session, candidates: list, specialization: str) -> list:
+    from backend.core.domain_matching import domain_matches_candidate, nearest_domain
+    from backend.models import Domain
+
+    token = specialization.strip()
+    matched = nearest_domain(token, db.query(Domain).all(), threshold=0.9)
+    if matched is not None:
+        return [c for c in candidates if domain_matches_candidate(matched, c.specialization, c.stack)]
+    lowered = token.lower()
+    return [c for c in candidates if lowered in (c.specialization or "").lower()]
+
+
+def filter_by_grade(candidates: list, grade: str) -> list:
+    token = grade.strip().lower()
+    return [c for c in candidates if (c.grade or "").lower() == token]
+
+
+def filter_by_query(query_text: str) -> "callable":
+    async def run(db: Session, candidates: list) -> list:
+        from backend.core.domain_matching import domain_matches_candidate, terms_match_query
+        from backend.services.domain_search import search_domains
+
+        ranked = await search_domains(db, query_text, limit=5)
+        best = ranked[0][1] if ranked else 0.0
+        cutoff = max(best - 0.2, 0.45)
+        strong = [domain for domain, score in ranked if score >= cutoff]
+        if strong:
+            return [c for c in candidates if any(domain_matches_candidate(domain, c.specialization, c.stack) for domain in strong)]
+        terms = [query_text]
+        for domain in strong:
+            terms.extend(alias for alias in (domain.aliases or []) if len(alias.strip()) >= 4)
+            terms.append(domain.title)
+        return [
+            c
+            for c in candidates
+            if terms_match_query(c.specialization or "", terms, threshold=0.62)
+            or any(terms_match_query(skill, terms, threshold=0.7) for skill in (c.stack or []))
+        ]
+
+    return run
+
+
 @router.get("/search", response_model=list[CandidateCardResponse])
 async def search_candidates(
     db: Session = Depends(get_db),
@@ -208,56 +260,21 @@ async def search_candidates(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=200),
 ):
-    from backend.core.domain_matching import domain_matches_candidate, nearest_domain
-    from backend.models import Domain
-    from backend.services.domain_search import search_domains
-
     candidates = visible_candidates(db)
-    vacancy = None
-    similarities = {}
-    if vacancy_id is not None:
-        vacancy = db.get(Vacancy, vacancy_id)
-        employer = db.query(EmployerProfile).filter(EmployerProfile.user_id == user.id).first()
-        if vacancy is None or employer is None or vacancy.employer_profile_id != employer.id:
-            raise HTTPException(status_code=404, detail="Вакансия не найдена")
+    vacancy = resolve_vacancy(db, user, vacancy_id)
     if specialization is not None:
-        token = specialization.strip()
-        matched = nearest_domain(token, db.query(Domain).all(), threshold=0.9)
-        if matched is not None:
-            candidates = [c for c in candidates if domain_matches_candidate(matched, c.specialization, c.stack)]
-        else:
-            lowered = token.lower()
-            candidates = [c for c in candidates if lowered in (c.specialization or "").lower()]
+        candidates = filter_by_specialization(db, candidates, specialization)
     if grade is not None:
-        token = grade.strip().lower()
-        candidates = [c for c in candidates if (c.grade or "").lower() == token]
+        candidates = filter_by_grade(candidates, grade)
     if q is not None and q.strip():
-        from backend.core.domain_matching import domain_matches_candidate, terms_match_query
-
-        ranked = await search_domains(db, q.strip(), limit=5)
-        best = ranked[0][1] if ranked else 0.0
-        cutoff = max(best - 0.2, 0.45)
-        strong = [domain for domain, score in ranked if score >= cutoff]
-        terms = [q.strip()]
-        for domain in strong:
-            terms.extend(alias for alias in (domain.aliases or []) if len(alias.strip()) >= 4)
-            terms.append(domain.title)
-        if strong:
-            candidates = [c for c in candidates if any(domain_matches_candidate(domain, c.specialization, c.stack) for domain in strong)]
-        else:
-            candidates = [
-                c
-                for c in candidates
-                if terms_match_query(c.specialization or "", terms, threshold=0.62)
-                or any(terms_match_query(skill, terms, threshold=0.7) for skill in (c.stack or []))
-            ]
-
-    reranked = False
+        candidates = await filter_by_query(q.strip())(db, candidates)
     if stack:
         candidates = [c for c in candidates if stack_matches(c.stack, stack)]
+    similarities = {}
     if vacancy is not None:
         similarities = await vacancy_similarities(db, vacancy, candidates)
         db.commit()
+    reranked = False
     if q is not None and q.strip() and candidates:
         reranked_order = await apply_rerank(q.strip(), candidates)
         reranked = reranked_order is not None

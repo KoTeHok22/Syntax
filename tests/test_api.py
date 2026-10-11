@@ -1,4 +1,4 @@
-﻿from fastapi.testclient import TestClient
+from fastapi.testclient import TestClient
 
 from backend.core.config import get_settings
 
@@ -39,7 +39,7 @@ def test_register_rejects_free_text_specialization(client):
             "password": "password123",
             "role": "candidate",
             "consent_accepted": True,
-            "specialization": "Backend, Р°РЅР°Р»РёС‚РёРєР°, ML",
+            "specialization": "Backend, аналитика, ML",
             "grade": "junior",
         },
     )
@@ -50,7 +50,7 @@ def test_profile_update_rejects_free_text_specialization(client):
     token = register_and_login(client, "spec-guard@example.com", "candidate")
     response = client.put(
         "/candidates/me",
-        json={"full_name": "Р“Р°СЂРґ", "specialization": "Backend, Р°РЅР°Р»РёС‚РёРєР°, ML"},
+        json={"full_name": "Гард", "specialization": "Backend, аналитика, ML"},
         headers=auth(token),
     )
     assert response.status_code == 422
@@ -153,7 +153,7 @@ def test_my_vacancies_include_closed_and_update_flow(client):
     first = client.post(
         "/vacancies",
         json={
-            "title": "Backend СЂР°Р·СЂР°Р±РѕС‚С‡РёРє",
+            "title": "Backend разработчик",
             "stack": ["python"],
             "specialization": "backend",
             "grade": "middle",
@@ -165,7 +165,7 @@ def test_my_vacancies_include_closed_and_update_flow(client):
     second = client.post(
         "/vacancies",
         json={
-            "title": "Frontend СЂР°Р·СЂР°Р±РѕС‚С‡РёРє",
+            "title": "Frontend разработчик",
             "stack": ["react"],
             "specialization": "frontend",
             "grade": "junior",
@@ -190,8 +190,8 @@ def test_my_vacancies_include_closed_and_update_flow(client):
     updated = client.put(
         f"/vacancies/{first_id}",
         json={
-            "title": "Senior Backend СЂР°Р·СЂР°Р±РѕС‚С‡РёРє",
-            "description": "РћР±РЅРѕРІР»РµРЅРѕ",
+            "title": "Senior Backend разработчик",
+            "description": "Обновлено",
             "stack": ["python", "postgresql"],
             "specialization": "Backend",
             "grade": "senior",
@@ -202,7 +202,7 @@ def test_my_vacancies_include_closed_and_update_flow(client):
     )
     assert updated.status_code == 200
     body = updated.json()
-    assert body["title"] == "Senior Backend СЂР°Р·СЂР°Р±РѕС‚С‡РёРє"
+    assert body["title"] == "Senior Backend разработчик"
     assert body["specialization"] == "backend"
     assert body["grade"] == "senior"
     assert body["salary_from"] == 300000
@@ -212,7 +212,7 @@ def test_my_vacancies_include_closed_and_update_flow(client):
     not_owner = client.put(
         f"/vacancies/{first_id}",
         json={
-            "title": "Р§СѓР¶Р°СЏ РІР°РєР°РЅСЃРёСЏ",
+            "title": "Чужая вакансия",
             "salary_from": 100,
             "salary_to": 200,
         },
@@ -223,7 +223,7 @@ def test_my_vacancies_include_closed_and_update_flow(client):
     inverted = client.put(
         f"/vacancies/{first_id}",
         json={
-            "title": "РРЅРІРµСЂСЃРёСЏ",
+            "title": "Рнверсия",
             "salary_from": 500000,
             "salary_to": 100000,
         },
@@ -239,7 +239,7 @@ def test_invitations_and_applications_pagination(client):
     client.put(
         "/candidates/me",
         json={
-            "full_name": "РџР°РіРёРЅР°С†РёСЏ РљР°РЅРґРёРґР°С‚РѕРІ",
+            "full_name": "Пагинация Кандидатов",
             "contacts": {"email": "p@example.com"},
             "stack": ["python"],
             "specialization": "backend",
@@ -251,7 +251,7 @@ def test_invitations_and_applications_pagination(client):
     from backend.core.categorization import assign_category as _assign_category2
 
     _db2 = _SessionLocal2()
-    _profile2 = _db2.query(_CandidateProfile2).filter(_CandidateProfile2.full_name == "РџР°РіРёРЅР°С†РёСЏ РљР°РЅРґРёРґР°С‚РѕРІ").first()
+    _profile2 = _db2.query(_CandidateProfile2).filter(_CandidateProfile2.full_name == "Пагинация Кандидатов").first()
     _profile2.grade = "junior"
     _assign_category2(_db2, _profile2, "backend", "junior")
     _db2.commit()
@@ -265,10 +265,10 @@ def test_invitations_and_applications_pagination(client):
             "/invitations",
             json={
                 "candidate_profile_id": card["candidate_profile_id"],
-                "message": "РџСЂРёРіР»Р°С€РµРЅРёРµ",
+                "message": "РџСЂРёРіР»Р°С€ение",
                 "salary_from": 100000,
                 "salary_to": 150000,
-                "company_name": "РћРћРћ РџР°РіРёРЅР°С†РёСЏ",
+                "company_name": "ООО Пагинация",
                 "contact_method": "hr@example.com",
             },
             headers=auth(employer_token),
@@ -290,7 +290,7 @@ def test_invitations_and_applications_pagination(client):
         vacancy = client.post(
             "/vacancies",
             json={
-                "title": f"Р’Р°РєР°РЅСЃРёСЏ {i}",
+                "title": f"Вакансия {i}",
                 "salary_from": 100000,
                 "salary_to": 150000,
             },
@@ -298,7 +298,7 @@ def test_invitations_and_applications_pagination(client):
         )
         application = client.post(
             "/applications",
-            json={"vacancy_id": vacancy.json()["id"], "message": "РћС‚РєР»РёРє"},
+            json={"vacancy_id": vacancy.json()["id"], "message": "Отклик"},
             headers=auth(candidate_token),
         )
         assert application.status_code == 201
@@ -318,7 +318,7 @@ def test_full_matching_flow(client):
     response = client.put(
         "/candidates/me",
         json={
-            "full_name": "РРІР°РЅ РљР°РЅРґРёРґР°С‚РѕРІ",
+            "full_name": "Рван Кандидатов",
             "contacts": {"email": "ivan@example.com", "phone": "+70000000000"},
             "stack": ["python", "fastapi"],
             "years_of_experience": 2,
@@ -337,7 +337,7 @@ def test_full_matching_flow(client):
     from backend.core.categorization import assign_category as _assign_category3
 
     _db3 = _SessionLocal3()
-    _profile3 = _db3.query(_CandidateProfile3).filter(_CandidateProfile3.full_name == "РРІР°РЅ РљР°РЅРґРёРґР°С‚РѕРІ").first()
+    _profile3 = _db3.query(_CandidateProfile3).filter(_CandidateProfile3.full_name == "Рван Кандидатов").first()
     _profile3.grade = "junior"
     _assign_category3(_db3, _profile3, "backend", "junior")
     _db3.commit()
@@ -363,10 +363,10 @@ def test_full_matching_flow(client):
         "/invitations",
         json={
             "candidate_profile_id": card["candidate_profile_id"],
-            "message": "РџСЂРёРіР»Р°С€РµРЅРёРµ РІ РєРѕРјР°РЅРґСѓ",
+            "message": "РџСЂРёРіР»Р°С€ение в команду",
             "salary_from": 100000,
             "salary_to": 150000,
-            "company_name": "РћРћРћ РџСЂРёРјРµСЂ",
+            "company_name": "ООО Пример",
             "contact_method": "hr@example.com",
         },
         headers=auth(employer_token),
@@ -409,11 +409,11 @@ def test_cards_filters_and_match_relevance(client):
     update = client.put(
         "/candidates/me",
         json={
-            "full_name": "Р¤РёР»СЊС‚СЂ РљР°РЅРґРёРґР°С‚РѕРІ",
+            "full_name": "Фильтр Кандидатов",
             "contacts": {"email": "f@example.com"},
             "stack": ["python", "postgresql"],
             "years_of_experience": 3,
-            "soft_skills": ["РєРѕРјРјСѓРЅРёРєР°С†РёСЏ"],
+            "soft_skills": ["коммуникация"],
             "specialization": "backend",
         },
         headers=auth(candidate_token),
@@ -424,7 +424,7 @@ def test_cards_filters_and_match_relevance(client):
     from backend.core.categorization import assign_category as _assign_category
 
     _db = _SessionLocal()
-    _profile = _db.query(_CandidateProfile).filter(_CandidateProfile.full_name == "Р¤РёР»СЊС‚СЂ РљР°РЅРґРёРґР°С‚РѕРІ").first()
+    _profile = _db.query(_CandidateProfile).filter(_CandidateProfile.full_name == "Фильтр Кандидатов").first()
     _profile.grade = "middle"
     _assign_category(_db, _profile, "backend", "middle")
     _db.commit()
@@ -447,7 +447,7 @@ def test_cards_filters_and_match_relevance(client):
 
     db = SessionLocal()
     candidate_id = card["candidate_profile_id"]
-    db.add(PvnAchievement(candidate_profile_id=candidate_id, achievement_type="С…Р°РєР°С‚РѕРЅ", level="РїРѕР±РµРґРёС‚РµР»СЊ", achieved_at=date(2026, 5, 1), score=35.0))
+    db.add(PvnAchievement(candidate_profile_id=candidate_id, achievement_type="хакатон", level="победитель", achieved_at=date(2026, 5, 1), score=35.0))
     db.commit()
     db.close()
 
@@ -485,7 +485,7 @@ def test_task_pool_used_before_generation(client):
         pool_task = Task(
             concept_id=concept.id,
             grade="junior",
-            statement=f"РџСѓР»-Р·Р°РґР°С‡Р° {concept.name}",
+            statement=f"Пул-задача {concept.name}",
             task_format="multiple_choice",
             options=["a", "b", "c", "d"],
             reference_answer=0,
@@ -497,15 +497,19 @@ def test_task_pool_used_before_generation(client):
 
     first_token = register_and_login(client, "cand7@example.com", "candidate")
     session = client.post("/test-sessions", json={"grade": "junior"}, headers=auth(first_token))
-    task_ids = {t["id"] for t in session.json()["tasks"]}
-    assert task_ids == set(pool_ids)
-    assert all("РџСѓР»-Р·Р°РґР°С‡Р°" in t["statement"] for t in session.json()["tasks"])
+    tasks = session.json()["tasks"]
+    task_ids = {t["id"] for t in tasks}
+    assert set(pool_ids).issubset(task_ids)
+    assert len(tasks) == get_settings().tasks_per_session
+    pool_in_session = [t for t in tasks if t["id"] in set(pool_ids)]
+    assert len(pool_in_session) == len(pool_ids)
+    generated_in_session = [t for t in tasks if t["id"] not in set(pool_ids)]
+    assert len(generated_in_session) == len(tasks) - len(pool_ids)
 
     second_token = register_and_login(client, "cand8@example.com", "candidate")
     second = client.post("/test-sessions", json={"grade": "junior"}, headers=auth(second_token))
     second_ids = {t["id"] for t in second.json()["tasks"]}
     assert second_ids.isdisjoint(task_ids)
-    assert all("РџСѓР»-Р·Р°РґР°С‡Р°" not in t["statement"] for t in second.json()["tasks"])
     db.close()
 
 
@@ -513,14 +517,14 @@ def test_employer_search_by_semantic_query_finds_postgres(client):
     db_token = register_and_login(client, "sem-db@example.com", "candidate")
     client.put(
         "/candidates/me",
-        json={"full_name": "Р‘Р°Р·С‹ Р”Р°РЅРЅС‹С…", "contacts": {"email": "db@example.com"}, "stack": ["python", "postgresql", "sql"], "specialization": "backend"},
+        json={"full_name": "Базы Данных", "contacts": {"email": "db@example.com"}, "stack": ["python", "postgresql", "sql"], "specialization": "backend"},
         headers=auth(db_token),
     )
     client.put("/candidates/me/grade", json={"grade": "middle"}, headers=auth(db_token))
     ui_token = register_and_login(client, "sem-ui@example.com", "candidate")
     client.put(
         "/candidates/me",
-        json={"full_name": "РРЅС‚РµСЂС„РµР№СЃС‹", "contacts": {"email": "ui@example.com"}, "stack": ["react", "css"], "specialization": "frontend"},
+        json={"full_name": "РРЅС‚РµСЂС„РµР№сы", "contacts": {"email": "ui@example.com"}, "stack": ["react", "css"], "specialization": "frontend"},
         headers=auth(ui_token),
     )
     client.put("/candidates/me/grade", json={"grade": "middle"}, headers=auth(ui_token))
@@ -530,17 +534,17 @@ def test_employer_search_by_semantic_query_finds_postgres(client):
     from backend.models import CandidateProfile
 
     db = SessionLocal()
-    db_candidate_id = db.query(CandidateProfile).filter(CandidateProfile.full_name == "Р‘Р°Р·С‹ Р”Р°РЅРЅС‹С…").one().id
-    ui_candidate_id = db.query(CandidateProfile).filter(CandidateProfile.full_name == "РРЅС‚РµСЂС„РµР№СЃС‹").one().id
+    db_candidate_id = db.query(CandidateProfile).filter(CandidateProfile.full_name == "Базы Данных").one().id
+    ui_candidate_id = db.query(CandidateProfile).filter(CandidateProfile.full_name == "РРЅС‚РµСЂС„РµР№сы").one().id
     db.close()
 
-    for query in ["Р±Р°Р·Р° РґР°РЅРЅС‹С…", "С…СЂР°РЅРёР»РёС‰Рµ РґР°РЅРЅС‹С…", "СЃСѓР±Рґ", "postgres"]:
+    for query in ["база данных", "хранилище данных", "субд", "postgres"]:
         found = client.get("/employer/search", params={"q": query}, headers=auth(employer_token))
         assert found.status_code == 200, query
         ids = [card["candidate_profile_id"] for card in found.json()]
-        assert db_candidate_id in ids, f"РєР°РЅРґРёРґР°С‚ СЃ Postgres РЅРµ РЅР°Р№РґРµРЅ РїРѕ В«{query}В»"
+        assert db_candidate_id in ids, f"кандидат с Postgres не РЅР°Р№ден по «{query}»"
 
-    ui_results = client.get("/employer/search", params={"q": "С„СЂРѕРЅС‚РµРЅРґ РІРµСЂСЃС‚РєР°"}, headers=auth(employer_token))
+    ui_results = client.get("/employer/search", params={"q": "фронтенд верстка"}, headers=auth(employer_token))
     assert ui_results.status_code == 200
     ui_ids = [card["candidate_profile_id"] for card in ui_results.json()]
     assert ui_candidate_id in ui_ids
@@ -549,16 +553,16 @@ def test_employer_search_by_semantic_query_finds_postgres(client):
 
 def test_employer_domains_list_and_create(client):
     token = register_and_login(client, "dom-emp@example.com", "employer")
-    seeded = client.get("/employer/domains", params={"q": "Р±Р°Р·Р° РґР°РЅРЅС‹С…"}, headers=auth(token))
+    seeded = client.get("/employer/domains", params={"q": "база данных"}, headers=auth(token))
     assert seeded.status_code == 200
     titles = [item["title"] for item in seeded.json()["items"]]
-    assert any("Р‘Р°Р·С‹ РґР°РЅРЅС‹С…" in title for title in titles)
+    assert any("Базы данных" in title for title in titles)
     assert seeded.json()["items"][0]["score"] > 0.5
 
-    created = client.post("/employer/domains", json={"title": "РљРІР°РЅС‚РѕРІС‹Рµ РІС‹С‡РёСЃР»РµРЅРёСЏ", "aliases": ["quantum"]}, headers=auth(token))
+    created = client.post("/employer/domains", json={"title": "Квантовые вычисления", "aliases": ["quantum"]}, headers=auth(token))
     assert created.status_code == 201
-    assert created.json()["slug"] == "РєРІР°РЅС‚РѕРІС‹Рµ-РІС‹С‡РёСЃР»РµРЅРёСЏ"[:64] or created.json()["title"] == "РљРІР°РЅС‚РѕРІС‹Рµ РІС‹С‡РёСЃР»РµРЅРёСЏ"
-    repeated = client.post("/employer/domains", json={"title": "РєРІР°РЅС‚РѕРІС‹Рµ РІС‹С‡РёСЃР»РµРЅРёСЏ"}, headers=auth(token))
+    assert created.json()["slug"] == "квантовые-вычисления"[:64] or created.json()["title"] == "Квантовые вычисления"
+    repeated = client.post("/employer/domains", json={"title": "квантовые вычисления"}, headers=auth(token))
     assert repeated.status_code == 201
     assert repeated.json()["id"] == created.json()["id"]
 
@@ -568,11 +572,11 @@ def test_employer_search(client):
     client.put(
         "/candidates/me",
         json={
-            "full_name": "РџРѕРёСЃРє РљР°РЅРґРёРґР°С‚РѕРІ",
+            "full_name": "Поиск Кандидатов",
             "contacts": {"email": "s@example.com"},
             "stack": ["python", "django"],
             "years_of_experience": 1,
-            "soft_skills": ["РєРѕРјРјСѓРЅРёРєР°С†РёСЏ"],
+            "soft_skills": ["коммуникация"],
             "specialization": "backend",
         },
         headers=auth(candidate_token),
@@ -672,7 +676,7 @@ def test_vacancy_and_application_flow(client):
     vacancy = client.post(
         "/vacancies",
         json={
-            "title": "Backend СЂР°Р·СЂР°Р±РѕС‚С‡РёРє",
+            "title": "Backend разработчик",
             "stack": ["python"],
             "specialization": "backend",
             "grade": "middle",
@@ -686,13 +690,13 @@ def test_vacancy_and_application_flow(client):
 
     application = client.post(
         "/applications",
-        json={"vacancy_id": vacancy_id, "message": "РћС‚РєР»РёРє"},
+        json={"vacancy_id": vacancy_id, "message": "Отклик"},
         headers=auth(candidate_token),
     )
     assert application.status_code == 201
     duplicate = client.post(
         "/applications",
-        json={"vacancy_id": vacancy_id, "message": "РџРѕРІС‚РѕСЂ"},
+        json={"vacancy_id": vacancy_id, "message": "Повтор"},
         headers=auth(candidate_token),
     )
     assert duplicate.status_code == 409
@@ -718,7 +722,7 @@ def test_interview_scheduling_persists_and_requires_accepted(client):
     vacancy = client.post(
         "/vacancies",
         json={
-            "title": "Backend СЂР°Р·СЂР°Р±РѕС‚С‡РёРє",
+            "title": "Backend разработчик",
             "stack": ["python"],
             "specialization": "backend",
             "grade": "middle",
@@ -730,7 +734,7 @@ def test_interview_scheduling_persists_and_requires_accepted(client):
     assert vacancy.status_code == 201
     application = client.post(
         "/applications",
-        json={"vacancy_id": vacancy.json()["id"], "message": "РћС‚РєР»РёРє"},
+        json={"vacancy_id": vacancy.json()["id"], "message": "Отклик"},
         headers=auth(candidate_token),
     )
     assert application.status_code == 201
@@ -933,12 +937,12 @@ def test_grade_change_requires_test_for_promotion(client):
     token = register_and_login(client, "candgrade@example.com", "candidate")
     client.put(
         "/candidates/me",
-        json={"full_name": "Р“СЂРµР№Рґ РўРµСЃС‚РѕРІ", "stack": ["python"], "specialization": "backend"},
+        json={"full_name": "Р“СЂРµР№д Тестов", "stack": ["python"], "specialization": "backend"},
         headers=auth(token),
     )
 
     db = SessionLocal()
-    profile = db.query(CandidateProfile).filter(CandidateProfile.full_name == "Р“СЂРµР№Рґ РўРµСЃС‚РѕРІ").first()
+    profile = db.query(CandidateProfile).filter(CandidateProfile.full_name == "Р“СЂРµР№д Тестов").first()
     profile.grade = "junior"
     assign_category(db, profile, "backend", "junior")
     for number in range(5):
@@ -978,12 +982,12 @@ def test_employer_profile_saves_offices_and_logo(client):
     response = client.put(
         "/employers/me",
         json={
-            "company_name": "РћРћРћ РћС„РёСЃС‹",
+            "company_name": "ООО Офисы",
             "description": "",
             "contacts": {},
             "offices": [
-                {"title": "Р“РѕР»РѕРІРЅРѕР№", "city": "РњРѕСЃРєРІР°", "address": "СѓР». РџРµСЂРІР°СЏ, 1", "is_default": False},
-                {"title": "Р¤РёР»РёР°Р»", "city": "РљР°Р·Р°РЅСЊ", "address": "СѓР». Р’С‚РѕСЂР°СЏ, 2", "is_default": True},
+                {"title": "Р“РѕР»РѕРІРЅРѕР№", "city": "Москва", "address": "ул. Первая, 1", "is_default": False},
+                {"title": "Филиал", "city": "Казань", "address": "ул. Вторая, 2", "is_default": True},
             ],
             "logo_data_url": tiny_png,
         },
@@ -991,13 +995,13 @@ def test_employer_profile_saves_offices_and_logo(client):
     )
     assert response.status_code == 200
     body = response.json()
-    assert [office["city"] for office in body["offices"]] == ["РњРѕСЃРєРІР°", "РљР°Р·Р°РЅСЊ"]
+    assert [office["city"] for office in body["offices"]] == ["Москва", "Казань"]
     assert [office["is_default"] for office in body["offices"]] == [False, True]
     assert body["logo_data_url"] == tiny_png
 
     without_offices = client.put(
         "/employers/me",
-        json={"company_name": "РћРћРћ РћС„РёСЃС‹", "description": "", "contacts": {}},
+        json={"company_name": "ООО Офисы", "description": "", "contacts": {}},
         headers=auth(token),
     ).json()
     assert len(without_offices["offices"]) == 2
@@ -1005,7 +1009,7 @@ def test_employer_profile_saves_offices_and_logo(client):
 
     cleared = client.put(
         "/employers/me",
-        json={"company_name": "РћРћРћ РћС„РёСЃС‹", "description": "", "contacts": {}, "offices": [], "logo_data_url": ""},
+        json={"company_name": "ООО Офисы", "description": "", "contacts": {}, "offices": [], "logo_data_url": ""},
         headers=auth(token),
     ).json()
     assert cleared["offices"] == []
@@ -1017,7 +1021,7 @@ def test_employer_logo_crop_is_saved_and_reset_with_logo(client):
     png = "data:image/png;base64,iVBORw0KGgo="
     saved = client.put(
         "/employers/me",
-        json={"company_name": "РћРћРћ РљСЂРѕРї", "description": "", "contacts": {}, "logo_data_url": png, "logo_zoom": 2.0, "logo_offset_x": 10, "logo_offset_y": -5},
+        json={"company_name": "ООО Кроп", "description": "", "contacts": {}, "logo_data_url": png, "logo_zoom": 2.0, "logo_offset_x": 10, "logo_offset_y": -5},
         headers=auth(token),
     ).json()
     assert saved["logo_zoom"] == 2.0
@@ -1026,14 +1030,14 @@ def test_employer_logo_crop_is_saved_and_reset_with_logo(client):
 
     out_of_range = client.put(
         "/employers/me",
-        json={"company_name": "РћРћРћ РљСЂРѕРї", "description": "", "contacts": {}, "logo_zoom": 5},
+        json={"company_name": "ООО Кроп", "description": "", "contacts": {}, "logo_zoom": 5},
         headers=auth(token),
     )
     assert out_of_range.status_code == 422
 
     removed = client.put(
         "/employers/me",
-        json={"company_name": "РћРћРћ РљСЂРѕРї", "description": "", "contacts": {}, "logo_data_url": ""},
+        json={"company_name": "ООО Кроп", "description": "", "contacts": {}, "logo_data_url": ""},
         headers=auth(token),
     ).json()
     assert removed["logo_data_url"] is None
@@ -1046,12 +1050,12 @@ def test_employer_profile_first_office_becomes_default_when_none_marked(client):
     body = client.put(
         "/employers/me",
         json={
-            "company_name": "РћРћРћ Р”РµС„РѕР»С‚",
+            "company_name": "ООО Дефолт",
             "description": "",
             "contacts": {},
             "offices": [
-                {"title": "Рђ", "city": "РЎР°РјР°СЂР°", "address": "СѓР». Рђ, 1", "is_default": False},
-                {"title": "Р‘", "city": "РџРµСЂРјСЊ", "address": "СѓР». Р‘, 2", "is_default": False},
+                {"title": "А", "city": "Самара", "address": "ул. А, 1", "is_default": False},
+                {"title": "Б", "city": "Пермь", "address": "ул. Б, 2", "is_default": False},
             ],
         },
         headers=auth(token),
@@ -1084,7 +1088,7 @@ def create_invitation_for_candidate(client, employer_token, candidate_token, suf
     client.put(
         "/candidates/me",
         json={
-            "full_name": f"РћС‚Р·С‹РІ {suffix}",
+            "full_name": f"Отзыв {suffix}",
             "contacts": {"email": f"w{suffix}@example.com"},
             "stack": ["python"],
             "specialization": "backend",
@@ -1096,7 +1100,7 @@ def create_invitation_for_candidate(client, employer_token, candidate_token, suf
     from backend.core.categorization import assign_category
 
     db = SessionLocal()
-    profile = db.query(CandidateProfile).filter(CandidateProfile.full_name == f"РћС‚Р·С‹РІ {suffix}").first()
+    profile = db.query(CandidateProfile).filter(CandidateProfile.full_name == f"Отзыв {suffix}").first()
     profile.grade = "junior"
     assign_category(db, profile, "backend", "junior")
     candidate_id = profile.id
@@ -1106,10 +1110,10 @@ def create_invitation_for_candidate(client, employer_token, candidate_token, suf
         "/invitations",
         json={
             "candidate_profile_id": candidate_id,
-            "message": "РСЃС…РѕРґРЅРѕРµ СЃРѕРѕР±С‰РµРЅРёРµ",
+            "message": "Рсходное сообщение",
             "salary_from": 100000,
             "salary_to": 150000,
-            "company_name": "РћРћРћ РћС‚Р·С‹РІ",
+            "company_name": "ООО Отзыв",
             "contact_method": "hr@example.com",
         },
         headers=auth(employer_token),
@@ -1119,10 +1123,10 @@ def create_invitation_for_candidate(client, employer_token, candidate_token, suf
 
 
 INVITATION_EDIT_PAYLOAD = {
-    "message": "РќРѕРІРѕРµ СЃРѕРѕР±С‰РµРЅРёРµ",
+    "message": "Новое сообщение",
     "salary_from": 120000,
     "salary_to": 170000,
-    "company_name": "РћРћРћ РћС‚Р·С‹РІ 2",
+    "company_name": "ООО Отзыв 2",
     "contact_method": "hr2@example.com",
 }
 
@@ -1134,7 +1138,7 @@ def test_employer_edits_sent_invitation_and_withdraws_it(client):
 
     edited = client.patch(f"/invitations/{invitation['id']}", json=INVITATION_EDIT_PAYLOAD, headers=auth(employer_token))
     assert edited.status_code == 200
-    assert edited.json()["message"] == "РќРѕРІРѕРµ СЃРѕРѕР±С‰РµРЅРёРµ"
+    assert edited.json()["message"] == "Новое сообщение"
     assert edited.json()["salary_from"] == 120000
     assert edited.json()["status"] == "sent"
 

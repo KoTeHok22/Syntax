@@ -114,19 +114,17 @@ async def vacancy_similarities(db: Session, vacancy: Vacancy, candidates: list[C
             for candidate in eligible}
 
 
-def rerank_documents(candidate: CandidateProfile) -> list[str]:
-    return [candidate.specialization or "", " ".join(candidate.stack or []), " ".join(candidate.soft_skills or []),
-            (candidate.resume_text or "")[:2000], (candidate.assessment_text or "")[:1200]]
-
-
-def normalize_rerank_scores(scores: list[float]) -> list[float]:
-    if not scores:
-        return []
-    lowest = min(scores)
-    highest = max(scores)
-    if highest - lowest < 1e-9:
-        return [1.0 if highest > 0 else 0.0 for _ in scores]
-    return [(score - lowest) / (highest - lowest) for score in scores]
+def stack_overlap(candidate_stack: list, required_stack: list) -> dict:
+    required = _skill_tokens(required_stack)
+    candidate = _skill_tokens(candidate_stack)
+    matched = required & candidate
+    missing = required - candidate
+    return {
+        "required_total": len(required),
+        "matched_total": len(matched),
+        "matched": sorted(matched),
+        "missing": sorted(missing),
+    }
 
 
 def relevance_breakdown(candidate_stack: list, required_stack: list, semantic_similarity: float | None = None) -> dict:
@@ -134,7 +132,26 @@ def relevance_breakdown(candidate_stack: list, required_stack: list, semantic_si
     semantic = semantic_similarity if semantic_similarity is not None and math.isfinite(semantic_similarity) else None
     if semantic is not None:
         semantic = max(0.0, min(1.0, semantic))
-    relevance = 0.3 * stack + 0.7 * semantic if semantic is not None else stack
+    if semantic is not None:
+        relevance = 0.3 * stack + 0.7 * semantic
+        stack_weight, semantic_weight = 0.3, 0.7
+    else:
+        fuzzy = min(1.0, lexical_floor(candidate_stack, required_stack))
+        relevance = stack + (1.0 - stack) * fuzzy * 0.6
+        stack_weight, semantic_weight = 1.0, 0.0
+    overlap = stack_overlap(candidate_stack, required_stack)
     return {"stack": stack, "semantic": semantic, "mode": "semantic" if semantic is not None else "lexical",
-            "stack_weight": 0.3 if semantic is not None else 1.0,
-            "semantic_weight": 0.7 if semantic is not None else 0.0, "relevance": relevance}
+            "stack_weight": stack_weight,
+            "semantic_weight": semantic_weight, "relevance": relevance, "overlap": overlap}
+
+
+def lexical_floor(candidate_stack: list, required_stack: list) -> float:
+    required = _skill_tokens(required_stack)
+    candidate = _skill_tokens(candidate_stack)
+    if not required:
+        return 1.0
+    partial = 0.0
+    for token in required - candidate:
+        if any(token in skill or skill in token for skill in candidate):
+            partial += 1.0
+    return partial / len(required)

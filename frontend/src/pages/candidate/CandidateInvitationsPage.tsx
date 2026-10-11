@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { ApiError } from '../../api/client'
 import { acceptInvitation, fetchIncomingInvitations, rejectInvitation, viewInvitation } from '../../api/platform'
 import type { Invitation } from '../../api/platform'
@@ -94,12 +94,7 @@ export function CandidateInvitationsPage() {
   }
 
   const newCount = invitations.filter((item) => item.status === 'sent').length
-  const matchPercent = useMemo(() => {
-    if (profile?.grade === 'senior') return 92
-    if (profile?.grade === 'middle') return 87
-    if (profile?.grade === 'junior') return 61
-    return 74
-  }, [profile])
+  const profileScore = profile === null ? null : Math.round(profile.score)
 
   const visibleInvitations = invitations.filter((item) => {
     if (tab === 'new') return item.status === 'sent' || item.status === 'viewed'
@@ -250,17 +245,19 @@ export function CandidateInvitationsPage() {
           <div className="flex flex-col gap-4 rounded-panel bg-raised p-6 shadow-raised">
             <span className="font-mono text-h2 font-bold text-ink">Ваш профиль</span>
             <div>
-              <div className="font-mono text-[56px] font-extrabold leading-none tracking-tight text-pvn-blue">{matchPercent}%</div>
-              <span className="font-mono text-[13px] text-ink-secondary">совпадение навыков с вакансиями</span>
+              <div className="font-mono text-[56px] font-extrabold leading-none tracking-tight text-pvn-blue">
+                {profileScore === null ? '—' : `${profileScore}%`}
+              </div>
+              <span className="font-mono text-[13px] text-ink-secondary">балл профиля: тесты, достижения ПВН и полнота</span>
             </div>
             <div className="h-3 w-full overflow-hidden rounded-full bg-sunken shadow-inset-sm">
-              <div className="h-full rounded-full bg-pvn-blue" style={{ width: `${matchPercent}%` }} />
+              <div className="h-full rounded-full bg-pvn-blue" style={{ width: `${profileScore ?? 0}%` }} />
             </div>
             <div className="flex flex-col gap-3 border-t border-ink/10 pt-4">
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-2 font-sans text-caption text-ink-secondary">
                   <span className="material-symbols-outlined text-[18px] text-ink-muted">workspace_premium</span>
-                  Подтверждённые навыки
+                  Навыков в профиле
                 </span>
                 <span className="font-mono text-[15px] font-bold text-ink">{profile?.stack.length ?? 0}</span>
               </div>
@@ -273,10 +270,10 @@ export function CandidateInvitationsPage() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-2 font-sans text-caption text-ink-secondary">
-                  <span className="material-symbols-outlined text-[18px] text-ink-muted">bar_chart</span>
-                  Просмотров профиля
+                  <span className="material-symbols-outlined text-[18px] text-ink-muted">mail</span>
+                  Приглашений всего
                 </span>
-                <span className="font-mono text-[15px] font-bold text-ink">36</span>
+                <span className="font-mono text-[15px] font-bold text-ink">{invitations.length}</span>
               </div>
             </div>
           </div>
