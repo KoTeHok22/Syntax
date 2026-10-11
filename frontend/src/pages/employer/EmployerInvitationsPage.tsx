@@ -291,12 +291,14 @@ export function EmployerInvitationsPage() {
                     <span className="font-mono text-[13px]">Контакты скрыты до принятия</span>
                   </div>
                 ) : null}
-                {invitation.status === 'sent' ? (
+                {invitation.status === 'sent' || invitation.status === 'viewed' ? (
                   <div className="flex flex-wrap items-center gap-2 border-t border-ink/10 pt-4">
-                    <button className="btn-ghost py-2 text-[13px]" onClick={() => openEdit(invitation)} type="button">
-                      <span className="material-symbols-outlined text-[18px]">edit</span>
-                      Изменить
-                    </button>
+                    {invitation.status === 'sent' ? (
+                      <button className="btn-ghost py-2 text-[13px]" onClick={() => openEdit(invitation)} type="button">
+                        <span className="material-symbols-outlined text-[18px]">edit</span>
+                        Изменить
+                      </button>
+                    ) : null}
                     <button className="btn-ghost py-2 text-[13px] text-pvn-red-ink" onClick={() => setWithdrawing(invitation)} type="button">
                       <span className="material-symbols-outlined text-[18px]">undo</span>
                       Отозвать

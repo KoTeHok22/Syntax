@@ -29,7 +29,7 @@ def to_response(invitation: Invitation, reveal_contacts: bool, for_candidate: bo
     employer = invitation.employer_profile
     company_name = employer.company_name if employer is not None and employer.company_name else invitation.company_name
     reveal = reveal_contacts and invitation.status == INVITATION_ACCEPTED
-    employer_contact = invitation.contact_method if reveal else None
+    employer_contact = invitation.contact_method if not for_candidate or reveal else None
     candidate_contact = candidate.contacts if reveal and not for_candidate else None
     return InvitationResponse(
         id=invitation.id,
