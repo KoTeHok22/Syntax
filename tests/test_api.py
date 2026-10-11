@@ -390,13 +390,17 @@ def test_full_matching_flow(client):
     assert invalid_salary.status_code == 422
 
     incoming = client.get("/invitations/incoming", headers=auth(candidate_token))
-    assert incoming.json()[0]["candidate_contacts"] is not None
+    assert incoming.json()[0]["contact_method"] is None
+    assert incoming.json()[0]["candidate_contacts"] is None
     sent = client.get("/invitations/sent", headers=auth(employer_token))
     assert sent.json()[0]["candidate_contacts"] is None
 
     assert client.post(f"/invitations/{invitation_id}/view", headers=auth(candidate_token)).status_code == 200
     accepted = client.post(f"/invitations/{invitation_id}/accept", headers=auth(candidate_token))
     assert accepted.json()["status"] == "accepted"
+    accepted_incoming = client.get("/invitations/incoming", headers=auth(candidate_token))
+    assert accepted_incoming.json()[0]["contact_method"] == "hr@example.com"
+    assert accepted_incoming.json()[0]["candidate_contacts"] is None
     sent_after_accept = client.get("/invitations/sent", headers=auth(employer_token))
     assert sent_after_accept.json()[0]["candidate_contacts"] is not None
 

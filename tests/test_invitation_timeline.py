@@ -82,10 +82,15 @@ def test_contacts_open_only_after_accept(client):
 
     incoming = client.get("/invitations/incoming", headers=auth(candidate_token)).json()
     own = next(item for item in incoming if item["id"] == invitation["id"])
-    assert own["candidate_contacts"] == {"telegram": "@timeline"}
+    assert own["candidate_contacts"] is None
+    assert own["contact_method"] is None
 
     client.post(f"/invitations/{invitation['id']}/view", headers=auth(candidate_token))
     client.post(f"/invitations/{invitation['id']}/accept", headers=auth(candidate_token))
+    accepted_incoming = client.get("/invitations/incoming", headers=auth(candidate_token)).json()
+    accepted_own = next(item for item in accepted_incoming if item["id"] == invitation["id"])
+    assert accepted_own["contact_method"] == "hr@example.com"
+    assert accepted_own["candidate_contacts"] is None
     accepted_list = client.get("/invitations/sent", headers=auth(employer_token)).json()
     accepted_item = next(item for item in accepted_list if item["id"] == invitation["id"])
     assert accepted_item["candidate_contacts"] == {"telegram": "@timeline"}

@@ -23,6 +23,14 @@ function formatSalary(from: number, to: number): string {
   return `${from.toLocaleString('ru-RU')} – ${to.toLocaleString('ru-RU')} ₽`
 }
 
+function employerContact(contactMethod: string): Record<string, string> {
+  const value = contactMethod.trim()
+  if (value.includes('@') && !value.startsWith('@') && !value.startsWith('https://t.me/')) return { email: value }
+  if (value.startsWith('@') || value.startsWith('https://t.me/')) return { telegram: value.replace('https://t.me/', '@').replace(/^@?/, '@') }
+  if (/^\+?[\d\s()-]{7,}$/.test(value)) return { phone: value }
+  return { contact: value }
+}
+
 type Tab = 'all' | 'new' | 'archive'
 
 export function CandidateInvitationsPage() {
@@ -193,8 +201,8 @@ export function CandidateInvitationsPage() {
 
                     <InvitationTimeline invitation={invitation} />
 
-                    {invitation.status === 'accepted' && invitation.candidate_contacts !== null ? (
-                      <ContactReveal companyName={invitation.company_name} contacts={invitation.candidate_contacts} />
+                    {invitation.status === 'accepted' && invitation.contact_method !== null && invitation.contact_method.trim() !== '' ? (
+                      <ContactReveal companyName={invitation.company_name} contacts={employerContact(invitation.contact_method)} />
                     ) : null}
 
                     {actionError !== undefined ? (

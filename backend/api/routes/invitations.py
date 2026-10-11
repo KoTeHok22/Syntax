@@ -24,10 +24,13 @@ from backend.schemas.matching import InvitationCreate, InvitationResponse, Invit
 router = APIRouter()
 
 
-def to_response(invitation: Invitation, reveal_contacts: bool) -> InvitationResponse:
+def to_response(invitation: Invitation, reveal_contacts: bool, for_candidate: bool) -> InvitationResponse:
     candidate = invitation.candidate_profile
     employer = invitation.employer_profile
     company_name = employer.company_name if employer is not None and employer.company_name else invitation.company_name
+    reveal = reveal_contacts and invitation.status == INVITATION_ACCEPTED
+    employer_contact = invitation.contact_method if reveal else None
+    candidate_contact = candidate.contacts if reveal and not for_candidate else None
     return InvitationResponse(
         id=invitation.id,
         candidate_profile_id=invitation.candidate_profile_id,
@@ -38,9 +41,9 @@ def to_response(invitation: Invitation, reveal_contacts: bool) -> InvitationResp
         salary_from=invitation.salary_from,
         salary_to=invitation.salary_to,
         company_name=company_name,
-        contact_method=invitation.contact_method if reveal_contacts else None,
+        contact_method=employer_contact,
         status=invitation.status,
-        candidate_contacts=candidate.contacts if reveal_contacts else None,
+        candidate_contacts=candidate_contact,
         created_at=invitation.created_at.isoformat(),
         viewed_at=invitation.viewed_at.isoformat() if invitation.viewed_at is not None else None,
         responded_at=invitation.responded_at.isoformat() if invitation.responded_at is not None else None,
@@ -69,7 +72,7 @@ def create_invitation(
     db.add(invitation)
     db.commit()
     db.refresh(invitation)
-    return to_response(invitation, reveal_contacts=False)
+    return to_response(invitation, reveal_contacts=False, for_candidate=False)
 
 
 def get_owned_invitation(db: Session, invitation_id: int, employer_profile: EmployerProfile) -> Invitation:
@@ -99,7 +102,7 @@ def update_invitation(
     invitation.contact_method = request.contact_method
     db.commit()
     db.refresh(invitation)
-    return to_response(invitation, reveal_contacts=False)
+    return to_response(invitation, reveal_contacts=False, for_candidate=False)
 
 
 @router.post("/invitations/{invitation_id}/withdraw", response_model=InvitationResponse)
@@ -117,7 +120,7 @@ def withdraw_invitation(
     invitation.status = INVITATION_WITHDRAWN
     db.commit()
     db.refresh(invitation)
-    return to_response(invitation, reveal_contacts=False)
+    return to_response(invitation, reveal_contacts=False, for_candidate=False)
 
 
 @router.get("/invitations/incoming", response_model=list[InvitationResponse])
@@ -135,7 +138,7 @@ def list_incoming_invitations(
         .limit(limit)
         .all()
     )
-    return [to_response(i, reveal_contacts=True) for i in invitations]
+    return [to_response(i, reveal_contacts=True, for_candidate=True) for i in invitations]
 
 
 @router.get("/invitations/sent", response_model=list[InvitationResponse])
@@ -153,7 +156,7 @@ def list_sent_invitations(
         .limit(limit)
         .all()
     )
-    return [to_response(i, reveal_contacts=i.status == INVITATION_ACCEPTED) for i in invitations]
+    return [to_response(i, reveal_contacts=True, for_candidate=False) for i in invitations]
 
 
 @router.post("/invitations/{invitation_id}/view", response_model=InvitationResponse)
@@ -170,7 +173,7 @@ def mark_viewed(
         invitation.viewed_at = datetime.now(timezone.utc)
         db.commit()
         db.refresh(invitation)
-    return to_response(invitation, reveal_contacts=True)
+    return to_response(invitation, reveal_contacts=True, for_candidate=True)
 
 
 @router.post("/invitations/{invitation_id}/accept", response_model=InvitationResponse)
@@ -190,7 +193,7 @@ def accept_invitation(
     invitation.responded_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(invitation)
-    return to_response(invitation, reveal_contacts=True)
+    return to_response(invitation, reveal_contacts=True, for_candidate=True)
 
 
 @router.post("/invitations/{invitation_id}/reject", response_model=InvitationResponse)
@@ -210,4 +213,4 @@ def reject_invitation(
     invitation.responded_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(invitation)
-    return to_response(invitation, reveal_contacts=False)
+    return to_response(invitation, reveal_contacts=False, for_candidate=False)
