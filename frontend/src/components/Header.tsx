@@ -35,6 +35,7 @@ export function Header() {
   const [leaveTarget, setLeaveTarget] = useState<string | null>(null)
   const [companyName, setCompanyName] = useState<string | null>(null)
   const [logo, setLogo] = useState<{ src: string; crop: LogoCrop } | null>(null)
+  const [profileLoaded, setProfileLoaded] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -45,6 +46,7 @@ export function Header() {
         fetchEmployerProfile()
           .then((profile) => {
             if (cancelled) return
+            setProfileLoaded(true)
             setCompanyName(profile.company_name.trim() || null)
             setLogo(
               profile.logo_data_url !== null
@@ -57,6 +59,7 @@ export function Header() {
           })
           .catch(() => {
             if (cancelled) return
+            setProfileLoaded(true)
             setCompanyName(null)
             setLogo(null)
           })
@@ -65,6 +68,7 @@ export function Header() {
       fetchCandidateProfile()
         .then((profile) => {
           if (cancelled) return
+          setProfileLoaded(true)
           setCompanyName(null)
           setLogo(
             profile.avatar_data_url !== null
@@ -76,7 +80,10 @@ export function Header() {
           )
         })
         .catch(() => {
-          if (!cancelled) setLogo(null)
+          if (!cancelled) {
+            setProfileLoaded(true)
+            setLogo(null)
+          }
         })
     }
     loadProfile()
@@ -87,10 +94,22 @@ export function Header() {
     }
   }, [user])
 
-  const renderAvatar = (size: number) =>
-    logo !== null ? (
-      <LogoAvatar alt={user?.role === 'employer' ? companyName ?? 'Логотип компании' : 'Аватар'} crop={logo.crop} size={size} src={logo.src} />
-    ) : (
+  const employerProfilePending = user?.role === 'employer' && !profileLoaded
+
+  const renderAvatar = (size: number) => {
+    if (logo !== null) {
+      return <LogoAvatar alt={user?.role === 'employer' ? companyName ?? 'Логотип компании' : 'Аватар'} crop={logo.crop} size={size} src={logo.src} />
+    }
+    if (employerProfilePending) {
+      return (
+        <span
+          aria-hidden="true"
+          className="shrink-0 animate-pulse rounded-full bg-ink/10"
+          style={{ width: size, height: size }}
+        />
+      )
+    }
+    return (
       <span
         className="flex shrink-0 items-center justify-center rounded-full bg-pvn-blue font-mono font-bold text-white"
         style={{ width: size, height: size, fontSize: size <= 32 ? 12 : 13 }}
@@ -98,6 +117,7 @@ export function Header() {
         {initials}
       </span>
     )
+  }
 
   useEffect(() => {
     const onClickCapture = (event: MouseEvent) => {
@@ -201,9 +221,13 @@ export function Header() {
           >
             {renderAvatar(32)}
             <span className="hidden min-w-0 flex-col items-start leading-tight sm:flex sm:max-w-[200px]">
-              <span className="max-w-full truncate font-mono text-[13px] font-bold text-ink">
-                {user.role === 'employer' ? companyName ?? 'Компания' : user.pvn_id ? `ПВН ${user.pvn_id}` : user.email.split('@')[0]}
-              </span>
+              {user.role === 'employer' && !profileLoaded ? (
+                <span aria-hidden="true" className="h-3.5 w-28 max-w-full animate-pulse rounded bg-ink/15" />
+              ) : (
+                <span className="max-w-full truncate font-mono text-[13px] font-bold text-ink">
+                  {user.role === 'employer' ? companyName ?? 'Профиль компании' : user.pvn_id ? `ПВН ${user.pvn_id}` : user.email.split('@')[0]}
+                </span>
+              )}
               <span className="font-mono text-[10px] uppercase tracking-wider text-ink-secondary">
                 {user.role === 'employer' ? 'Работодатель' : 'Кандидат'}
               </span>
@@ -218,9 +242,13 @@ export function Header() {
               <div className="flex items-center gap-3 border-b border-ink/10 px-4 py-4">
                 {renderAvatar(40)}
                 <div className="flex min-w-0 flex-col">
-                  <span className="truncate font-sans text-[15px] font-semibold text-ink">
-                    {user.role === 'employer' ? companyName ?? 'Компания' : user.pvn_id ? `ПВН ${user.pvn_id}` : user.email.split('@')[0]}
-                  </span>
+                  {user.role === 'employer' && !profileLoaded ? (
+                    <span aria-hidden="true" className="h-4 w-32 animate-pulse rounded bg-ink/15" />
+                  ) : (
+                    <span className="truncate font-sans text-[15px] font-semibold text-ink">
+                      {user.role === 'employer' ? companyName ?? 'Профиль компании' : user.pvn_id ? `ПВН ${user.pvn_id}` : user.email.split('@')[0]}
+                    </span>
+                  )}
                   <span className="truncate font-sans text-caption text-ink-secondary">{user.email}</span>
                 </div>
               </div>
