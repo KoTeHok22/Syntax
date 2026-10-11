@@ -247,6 +247,75 @@ def test_specialization_enum_matches_label_map():
     assert set(SPECIALIZATION_LABELS) == set(SPECIALIZATIONS)
 
 
+def test_concept_domains_for_specialization():
+    from backend.core.labels import concept_domains_for_specialization
+
+    assert concept_domains_for_specialization("backend") == ("backend", "databases", "algorithms")
+    assert concept_domains_for_specialization("design") == ("design",)
+    assert concept_domains_for_specialization("DESIGN") == ("design",)
+    assert concept_domains_for_specialization(None) == ()
+    assert concept_domains_for_specialization("unknown") == ()
+
+
+def test_designer_test_session_uses_design_concepts(client, monkeypatch):
+    from backend.api.routes import test_sessions
+    from backend.db import SessionLocal
+    from backend.models import Concept
+
+    class Draft:
+        statement = "Дизайн-задача"
+        task_format = "multiple_choice"
+        options = ["верно", "неверно", "тоже нет", "мимо"]
+        reference_answer = 0
+
+    async def fake_llm_task(concept, grade):
+        return Draft()
+
+    monkeypatch.setattr(test_sessions, "llm_task", fake_llm_task)
+
+    db = SessionLocal()
+    seed_concept_bank(db)
+    design_names = {
+        concept.name
+        for concept in db.query(Concept).filter(Concept.domain == "design").all()
+    }
+    db.close()
+    assert design_names
+
+    registered = client.post(
+        "/auth/register",
+        json={
+            "email": "designer@example.com",
+            "password": "password123",
+            "role": "candidate",
+            "specialization": "design",
+            "grade": "junior",
+            "consent_accepted": True,
+        },
+    )
+    assert registered.status_code == 201
+    assert client.get(registered.json()["confirmation_url"]).status_code == 200
+    login_response = client.post(
+        "/auth/login",
+        data={"username": "designer@example.com", "password": "password123"},
+    )
+    assert login_response.status_code == 200
+    token = login_response.json()["access_token"]
+
+    session = client.post("/test-sessions", json={"grade": "junior"}, headers=auth(token))
+    assert session.status_code == 201
+    tasks = session.json()["tasks"]
+    assert tasks
+    concept_ids = {task["concept_id"] for task in tasks}
+    db = SessionLocal()
+    used_names = {
+        concept.name
+        for concept in db.query(Concept).filter(Concept.id.in_(concept_ids)).all()
+    }
+    db.close()
+    assert used_names <= design_names
+
+
 def test_profile_pdf_localizes_enums_and_does_not_duplicate_grade():
     from pypdf import PdfReader
 

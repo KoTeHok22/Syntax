@@ -7,7 +7,7 @@ import { gradeLabel, specializationLabel } from '../lib/format'
 
 type Mode = 'login' | 'register'
 
-const FALLBACK_SPECIALIZATIONS = ['backend', 'frontend', 'data', 'devops', 'mobile', 'qa'] as const
+const FALLBACK_SPECIALIZATIONS = ['backend', 'frontend', 'data', 'devops', 'mobile', 'qa', 'design'] as const
 const GRADE_OPTIONS = ['junior', 'middle', 'senior'] as const
 type Grade = (typeof GRADE_OPTIONS)[number]
 

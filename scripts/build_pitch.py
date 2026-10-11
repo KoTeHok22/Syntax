@@ -88,7 +88,7 @@ def build():
 
     validation = slides[6]
     set_text(validation, 0, "Валидация")
-    set_text(validation, 21, "262 backend-теста + 10 pgvector")
+    set_text(validation, 21, "236 backend-тестов + 10 pgvector")
     set_text(validation, 18, "Последний прогон: Docker PostgreSQL/pgvector с rollback временных записей")
     set_text(validation, 22, "Self-reported метрики")
     set_text(validation, 23, "Прежние AUC, test-retest и Precision@5 не прошли независимую проверку")
@@ -140,7 +140,7 @@ def build():
 
     architecture = slides[11]
     set_text(architecture, 0, "Архитектура")
-    set_text(architecture, 1, "Монолит с явным разделением слоёв: api / core / services / models / auth.\n\nFrontend: React SPA (Vite + TypeScript + Tailwind), nginx в docker.\nХранение: PostgreSQL 16, миграции Alembic.\n\nLLM-провайдер опционален: при отсутствии работает fallback-пул задач и детерминированная генерация. Embedding-подбор деградирует до lexical fallback.\n\nКонтейнеризация: docker-compose (api :8000, db, web :3000). Последний прогон: 262 backend-теста и 10 PostgreSQL/pgvector тестов с rollback. Внешние PVN/ATS и успешный multimodal visual вызов не подтверждены.")
+    set_text(architecture, 1, "Монолит с явным разделением слоёв: api / core / services / models / auth.\n\nFrontend: React SPA (Vite + TypeScript + Tailwind), nginx в docker.\nХранение: PostgreSQL 16, миграции Alembic.\n\nLLM-провайдер опционален: при отсутствии работает fallback-пул задач и детерминированная генерация. Embedding-подбор деградирует до lexical fallback.\n\nКонтейнеризация: docker-compose (api :8000, db, web :3000). Последний прогон: 236 backend-тестов и 10 PostgreSQL/pgvector тестов с rollback. Внешние PVN/ATS не подтверждены.")
 
     team = slides[12]
     if team is not None:

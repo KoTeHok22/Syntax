@@ -18,7 +18,6 @@ from backend.models import (
     User,
     Vacancy,
     EmployerProfile,
-    DesignerAudit,
 )
 from backend.schemas.matching import CandidateCardResponse
 from backend.services.reranking import rerank_enabled
@@ -78,15 +77,6 @@ def build_card(db: Session, candidate: CandidateProfile, required_stack: list, s
         .all()
     )
     components = build_components(candidate, achievements, latest_session, submissions)
-    audit = db.query(DesignerAudit).filter(
-        DesignerAudit.candidate_profile_id == candidate.id,
-        DesignerAudit.task_key == "checkout-v1",
-        DesignerAudit.status == "submitted",
-    ).first()
-    if audit and latest_session is None:
-        audit_score = (audit.evaluation or {}).get("testing_score")
-        if isinstance(audit_score, (int, float)) and 0 <= audit_score <= 1:
-            components.test_score = audit_score * 100
     score, breakdown = compute_score(components)
     match = relevance_breakdown(candidate.stack, required_stack, semantic_similarity)
     relevance = match["relevance"]

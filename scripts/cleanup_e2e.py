@@ -7,7 +7,6 @@ from backend.db import SessionLocal
 from backend.models import (
     Application,
     CandidateProfile,
-    DesignerAudit,
     EmployerProfile,
     PvnAchievement,
     Invitation,
@@ -21,7 +20,6 @@ from backend.models import (
 
 
 def _delete_candidate(db, candidate_id: int) -> None:
-    db.query(DesignerAudit).filter(DesignerAudit.candidate_profile_id == candidate_id).delete(synchronize_session=False)
     db.query(PvnAchievement).filter(PvnAchievement.candidate_profile_id == candidate_id).delete(synchronize_session=False)
     db.query(Application).filter(Application.candidate_profile_id == candidate_id).delete(synchronize_session=False)
     db.query(Invitation).filter(Invitation.candidate_profile_id == candidate_id).delete(synchronize_session=False)

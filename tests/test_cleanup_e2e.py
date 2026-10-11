@@ -10,7 +10,6 @@ from backend.models import (
     CandidateProfile,
     CompanyOffice,
     Concept,
-    DesignerAudit,
     EmployerProfile,
     PvnAchievement,
     Invitation,
@@ -57,7 +56,6 @@ def seed_run(db, run_id, prefix="e2e"):
     db.flush()
     db.add_all([
         CompanyOffice(employer_profile_id=employer.id, title="Office"),
-        DesignerAudit(candidate_profile_id=candidate.id, scenario="Audit", screenshot_data_url="data:image/png;base64,test"),
         PvnAchievement(candidate_profile_id=candidate.id, achievement_type="contest", achieved_at=date(2026, 1, 1)),
         Application(candidate_profile_id=candidate.id, vacancy_id=vacancy.id),
         Invitation(candidate_profile_id=candidate.id, employer_profile_id=employer.id, message="Invitation", salary_from=1, salary_to=2, company_name="Company", contact_method="email"),
@@ -147,7 +145,6 @@ def test_cleanup_exact_run_suffix_and_e2e_prefix(cleanup_db, monkeypatch, run_id
     after = snapshot(db)
     assert len(after["users"]) == len(before["users"]) - 2
     assert all(not row["email"].startswith("e2e.newcore.") for row in after["users"])
-    assert len(after["designer_audits"]) == len(before["designer_audits"]) - 1
 
 
 @pytest.mark.parametrize("run_id", [None, "", "   ", "%", "run%1", "run\\1", "run.1", "run@1", "run 1"])

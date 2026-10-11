@@ -6,7 +6,7 @@ import { fetchCandidateProfile, updateCandidateProfile, updateGrade, updateVisib
 import type { CandidateProfile } from '../../api/auth'
 import { formatExperience, formatNumberInput, gradeLabel } from '../../lib/format'
 
-const specializations = ['backend', 'frontend', 'data', 'devops', 'mobile', 'qa']
+const specializations = ['backend', 'frontend', 'data', 'devops', 'mobile', 'qa', 'design']
 const grades = ['junior', 'middle', 'senior']
 const gradeRank: Record<string, number> = { junior: 0, middle: 1, senior: 2 }
 
@@ -17,6 +17,7 @@ const specializationLabels: Record<string, string> = {
   devops: 'DevOps',
   mobile: 'Mobile',
   qa: 'QA',
+  design: 'Дизайн',
 }
 
 interface ProfileForm {
@@ -589,7 +590,7 @@ export function CandidateProfilePage() {
                 title="Балл ПВН — сводная оценка по тестам, достижениям и полноте профиля"
               >
                 <div className="flex items-baseline gap-1">
-                  <span className="font-mono text-[22px] font-extrabold text-white">{profile.grade !== null ? Math.round(profile.grade === 'senior' ? 92 : profile.grade === 'middle' ? 87 : 61) : '—'}</span>
+                  <span className="font-mono text-[22px] font-extrabold text-white">{Math.round(profile.score)}</span>
                   <span className="font-mono text-[11px] text-white/70">/ 100</span>
                 </div>
                 <span className="font-mono text-[10px] uppercase tracking-wider text-white/60">Балл ПВН</span>
@@ -628,20 +629,17 @@ export function CandidateProfilePage() {
                   Что влияет на балл
                 </span>
                 <div className="flex flex-col gap-1.5">
-                  <div className="flex items-baseline justify-between font-mono text-[11px]">
-                    <span className="text-ink-secondary">Тесты</span>
-                    <span className="font-bold text-pvn-blue">92</span>
-                  </div>
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-sunken shadow-inset-sm">
-                    <div className="h-full w-[92%] rounded-full bg-pvn-blue" />
-                  </div>
-                  <div className="flex items-baseline justify-between font-mono text-[11px]">
-                    <span className="text-ink-secondary">Заполненность профиля</span>
-                    <span className="font-bold text-pvn-blue">90</span>
-                  </div>
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-sunken shadow-inset-sm">
-                    <div className="h-full w-[90%] rounded-full bg-pvn-blue" />
-                  </div>
+                  {Object.entries(profile.score_breakdown).map(([key, component]) => (
+                    <div className="flex flex-col gap-1" key={key}>
+                      <div className="flex items-baseline justify-between font-mono text-[11px]">
+                        <span className="text-ink-secondary">{component.label}</span>
+                        <span className="font-bold text-pvn-blue">{Math.round(component.value)}</span>
+                      </div>
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-sunken shadow-inset-sm">
+                        <div className="h-full rounded-full bg-pvn-blue" style={{ width: `${Math.max(0, Math.min(component.value, 100))}%` }} />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
               <div className="flex items-center gap-2 rounded-xl bg-inset px-3 py-2 shadow-inset-sm">

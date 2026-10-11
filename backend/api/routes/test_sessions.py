@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from backend.api.deps import get_candidate_profile, get_db, require_employer
 from backend.core.categorization import assign_category
 from backend.core.config import get_settings
+from backend.core.labels import concept_domains_for_specialization
 from backend.core.testing import (
     GRADE_ORDER,
     SESSION_STATUS_COMPLETED,
@@ -121,17 +122,19 @@ async def start_test_session(
     db.flush()
     target_count = settings.tasks_per_session
     context_labels = [row.label for row in db.query(TaskContext).all()]
-    pool_tasks = (
+    concept_domains = concept_domains_for_specialization(candidate_profile.specialization)
+    pool_query = (
         db.query(Task)
+        .join(Concept, Task.concept_id == Concept.id)
         .filter(
             Task.grade == request.grade,
             Task.candidate_profile_id.is_(None),
             Task.session_id.is_(None),
         )
-        .order_by(Task.id)
-        .limit(target_count)
-        .all()
     )
+    if concept_domains:
+        pool_query = pool_query.filter(Concept.domain.in_(concept_domains))
+    pool_tasks = pool_query.order_by(Task.id).limit(target_count).all()
     generated = 0
     for pool_task in pool_tasks:
         pool_task.candidate_profile_id = candidate_profile.id
@@ -139,12 +142,17 @@ async def start_test_session(
         generated += 1
     remaining = target_count - generated
     if remaining > 0:
-        concepts = (
-            db.query(Concept)
-            .filter(Concept.grade == request.grade)
-            .order_by(Concept.id)
-            .all()
-        )
+        concept_query = db.query(Concept).filter(Concept.grade == request.grade)
+        if concept_domains:
+            concept_query = concept_query.filter(Concept.domain.in_(concept_domains))
+        concepts = concept_query.order_by(Concept.id).all()
+        if not concepts and concept_domains:
+            concepts = (
+                db.query(Concept)
+                .filter(Concept.grade == request.grade)
+                .order_by(Concept.id)
+                .all()
+            )
         if concepts:
             drafts = await asyncio.gather(
                 *(llm_task(concept, request.grade) for concept in concepts[:remaining])

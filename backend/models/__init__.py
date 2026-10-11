@@ -4,7 +4,6 @@ from backend.models.matching import Application, Category, Domain, Invitation, V
 from backend.models.testing import Concept, Task, TaskContext, TestSession
 from backend.models.regular_tasks import RegularTask, RegularTaskSubmission
 from backend.models.pvn import PvnAchievement
-from backend.models.designer_audit import DesignerAudit
 
 __all__ = [
     "User",
@@ -23,5 +22,4 @@ __all__ = [
     "RegularTask",
     "RegularTaskSubmission",
     "PvnAchievement",
-    "DesignerAudit",
 ]

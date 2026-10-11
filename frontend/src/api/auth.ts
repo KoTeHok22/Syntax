@@ -56,6 +56,8 @@ export interface CandidateProfile {
   grade_confirmed_at: string | null
   grade_confirmed: boolean
   grade_valid_until: string | null
+  score: number
+  score_breakdown: Record<string, { label: string; value: number; weight: number }>
 }
 
 export function fetchCandidateProfile(): Promise<CandidateProfile> {

@@ -20,7 +20,6 @@ const employerNav = [
 const candidateNav = [
   { to: '/candidate', label: 'Профиль', end: true },
   { to: '/candidate/testing', label: 'Тестирование', end: false },
-  { to: '/candidate/designer-audit', label: 'UX-аудит', end: false },
   { to: '/candidate/invitations', label: 'Приглашения', end: false },
   { to: '/candidate/vacancies', label: 'Вакансии', end: false },
   { to: '/candidate/regular-tasks', label: 'Задания', end: false },

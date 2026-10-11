@@ -31,15 +31,17 @@ from backend.schemas.matching import (
 )
 from backend.services.pdf_parser import PROFILE_FIELDS, parse_resume
 from backend.services.profile_pdf import build_profile_pdf
+from backend.services.candidate_score import candidate_score
 from backend.services.semantic_matching import index_candidate
 
 router = APIRouter()
 
 
-def candidate_profile_response(profile: CandidateProfile) -> CandidateProfileResponse:
+def candidate_profile_response(profile: CandidateProfile, db: Session) -> CandidateProfileResponse:
     payload = CandidateProfileResponse.model_validate(profile)
     payload.grade_confirmed = grade_confirmation_active(profile.grade_confirmed_at)
     payload.grade_valid_until = grade_confirmation_expires_at(profile.grade_confirmed_at)
+    payload.score, payload.score_breakdown = candidate_score(db, profile)
     return payload
 
 
@@ -68,8 +70,11 @@ def download_profile_pdf(
 
 
 @router.get("/candidates/me", response_model=CandidateProfileResponse)
-def get_my_candidate_profile(profile: CandidateProfile = Depends(get_candidate_profile)):
-    return candidate_profile_response(profile)
+def get_my_candidate_profile(
+    profile: CandidateProfile = Depends(get_candidate_profile),
+    db: Session = Depends(get_db),
+):
+    return candidate_profile_response(profile, db)
 
 
 @router.put("/candidates/me", response_model=CandidateProfileResponse)
@@ -85,7 +90,7 @@ async def update_my_candidate_profile(
     await index_candidate(profile)
     db.commit()
     db.refresh(profile)
-    return candidate_profile_response(profile)
+    return candidate_profile_response(profile, db)
 
 
 @router.put("/candidates/me/grade", response_model=CandidateProfileResponse)
@@ -114,7 +119,7 @@ def update_my_grade(
             assign_category(db, profile, profile.specialization, request.grade)
     db.commit()
     db.refresh(profile)
-    return candidate_profile_response(profile)
+    return candidate_profile_response(profile, db)
 
 
 @router.put("/candidates/me/visibility", response_model=CandidateProfileResponse)
@@ -126,7 +131,7 @@ def update_visibility(
     profile.is_visible = request.is_visible
     db.commit()
     db.refresh(profile)
-    return candidate_profile_response(profile)
+    return candidate_profile_response(profile, db)
 
 
 @router.post("/candidates/me/resume")

@@ -12,7 +12,6 @@ import { EmployerRegularTasksPage } from './pages/employer/EmployerRegularTasksP
 import { EmployerProfilePage } from './pages/employer/EmployerProfilePage'
 import { CandidateProfilePage } from './pages/candidate/CandidateProfilePage'
 import { CandidateTestingPage } from './pages/candidate/CandidateTestingPage'
-import { CandidateDesignerAuditPage } from './pages/candidate/CandidateDesignerAuditPage'
 import { CandidateInvitationsPage } from './pages/candidate/CandidateInvitationsPage'
 import { CandidateVacanciesPage } from './pages/candidate/CandidateVacanciesPage'
 import { CandidateRegularTasksPage } from './pages/candidate/CandidateRegularTasksPage'
@@ -118,14 +117,6 @@ export function App() {
             element={
               <RequireRole role="candidate">
                 <CandidateInvitationsPage />
-              </RequireRole>
-            }
-          />
-          <Route
-            path="/candidate/designer-audit"
-            element={
-              <RequireRole role="candidate">
-                <CandidateDesignerAuditPage />
               </RequireRole>
             }
           />

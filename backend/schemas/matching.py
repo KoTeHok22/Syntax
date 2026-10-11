@@ -44,6 +44,8 @@ class CandidateProfileResponse(BaseModel):
     grade_confirmed: bool = False
     grade_valid_until: datetime | None = None
     is_visible: bool
+    score: float = 0.0
+    score_breakdown: dict = Field(default_factory=dict)
 
     class Config:
         from_attributes = True

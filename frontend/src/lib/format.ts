@@ -43,6 +43,7 @@ const SPECIALIZATION_LABELS: Record<string, string> = {
   devops: 'DevOps',
   mobile: 'Mobile',
   qa: 'QA',
+  design: 'Дизайн',
 }
 
 const GRADE_LABELS: Record<string, string> = {

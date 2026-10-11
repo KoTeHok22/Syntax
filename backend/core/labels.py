@@ -13,10 +13,27 @@ SPECIALIZATION_LABELS = {
     "devops": "DevOps",
     "mobile": "Mobile",
     "qa": "QA",
+    "design": "Дизайн",
 }
 
 SPECIALIZATIONS = tuple(SPECIALIZATION_LABELS)
-Specialization = Literal["backend", "frontend", "data", "devops", "mobile", "qa"]
+Specialization = Literal["backend", "frontend", "data", "devops", "mobile", "qa", "design"]
+
+SPECIALIZATION_DOMAINS: dict[str, tuple[str, ...]] = {
+    "backend": ("backend", "databases", "algorithms"),
+    "frontend": ("frontend", "algorithms"),
+    "data": ("databases", "algorithms"),
+    "devops": ("devops", "algorithms"),
+    "mobile": ("algorithms", "frontend"),
+    "qa": ("algorithms", "backend"),
+    "design": ("design",),
+}
+
+
+def concept_domains_for_specialization(specialization: str | None) -> tuple[str, ...]:
+    if not specialization:
+        return ()
+    return SPECIALIZATION_DOMAINS.get(specialization.strip().lower(), ())
 
 GRADE_LABELS = {
     "junior": "Junior",

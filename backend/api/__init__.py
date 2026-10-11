@@ -3,7 +3,6 @@ from fastapi import APIRouter
 from backend.api.routes import (
     applications,
     ats,
-    designer_audits,
     pvn_auth,
     auth,
     candidates,
@@ -31,5 +30,4 @@ router.include_router(test_sessions.router, tags=["testing"])
 router.include_router(vacancies.router, tags=["vacancies"])
 router.include_router(applications.router, tags=["applications"])
 router.include_router(ats.router, tags=["ats"])
-router.include_router(designer_audits.router, tags=["designer-audits"])
 router.include_router(regular_tasks.router, tags=["regular-tasks"])
