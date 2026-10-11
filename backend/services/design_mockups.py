@@ -38,46 +38,46 @@ FLAW_TEMPLATES: list[dict] = [
     {
         "flaw_id": "low_contrast",
         "title": "Недостаточный контраст текста",
-        "description": "Подпись или текст набраны слишком бледным цветом на светлом фоне, контраст ниже 4,5:1 — текст плохо читается.",
-        "region": {"x": 0.06, "y": 0.6, "w": 0.6, "h": 0.08},
+        "description": "Подпись набрана почти белым цветом на белом фоне — текст практически не читается.",
+        "region": {"x": 0.05, "y": 0.36, "w": 0.7, "h": 0.07},
         "html": """
-        <div style="background:#ffffff;color:#e6e6e6;font-size:15px;padding:10px 12px;border-radius:10px;">Итоговая сумма к оплате уточняется</div>
+        <div style="color:#f0f0f0;font-size:15px;">Итоговая сумма к оплате уточняется</div>
         """,
     },
     {
         "flaw_id": "tiny_tap_target",
         "title": "Слишком маленькая цель для нажатия",
-        "description": "Кнопка закрытия или действия меньше 44×44 px, в неё трудно попасть пальцем на телефоне.",
-        "region": {"x": 0.86, "y": 0.02, "w": 0.1, "h": 0.05},
+        "description": "Кнопка действия размером около 16×16 px — в неё почти невозможно попасть пальцем на телефоне.",
+        "region": {"x": 0.08, "y": 0.36, "w": 0.09, "h": 0.05},
         "html": """
-        <div style="display:flex;justify-content:flex-end;"><span style="display:inline-flex;width:16px;height:16px;align-items:center;justify-content:center;color:#8891a8;font-size:14px;">✕</span></div>
+        <div><span style="display:inline-flex;width:16px;height:16px;align-items:center;justify-content:center;color:#2f5cff;font-size:14px;border:1px solid #cdd3e0;border-radius:4px;">＋</span></div>
         """,
     },
     {
         "flaw_id": "missing_state",
         "title": "Нет обратной связи о состоянии",
         "description": "Кнопка запускает долгую операцию, но интерфейс не показывает загрузку и не меняет состояние — пользователь не понимает, что происходит.",
-        "region": {"x": 0.06, "y": 0.6, "w": 0.88, "h": 0.08},
+        "region": {"x": 0.05, "y": 0.75, "w": 0.9, "h": 0.1},
         "html": """
-        <div style="background:#2f5cff;color:#ffffff;text-align:center;padding:14px;border-radius:12px;font-size:16px;font-weight:600;">{action}</div>
+        <div style="color:#3a4256;font-size:15px;">Нажмите, чтобы оформить заказ. Операция может занять до минуты.</div>
         """,
     },
     {
         "flaw_id": "no_confirmation",
         "title": "Опасное действие без подтверждения",
-        "description": "Удаление или очистка выполняется одним нажатием без подтверждения и без возможности отмены.",
-        "region": {"x": 0.06, "y": 0.3, "w": 0.5, "h": 0.1},
+        "description": "Удаление выполняется одним нажатием без подтверждения и без возможности отмены.",
+        "region": {"x": 0.05, "y": 0.36, "w": 0.45, "h": 0.06},
         "html": """
-        <div style="color:#5c6480;font-size:14px;padding:6px 0;text-decoration:underline;cursor:pointer;">Очистить всё</div>
+        <div style="color:#d02828;font-size:15px;text-decoration:underline;">Удалить заказ без подтверждения</div>
         """,
     },
     {
         "flaw_id": "unclear_hierarchy",
         "title": "Нарушена визуальная иерархия",
-        "description": "Второстепенное действие оформлено так же ярко, как основное, и конкурирует с ним за внимание пользователя.",
-        "region": {"x": 0.06, "y": 0.42, "w": 0.4, "h": 0.09},
+        "description": "Второстепенное действие оформлено такой же яркой заливкой, как основное, и конкурирует с ним за внимание.",
+        "region": {"x": 0.05, "y": 0.36, "w": 0.6, "h": 0.07},
         "html": """
-        <div style="display:flex;gap:10px;"><span style="background:#2f5cff;color:#fff;padding:12px 18px;border-radius:10px;font-size:15px;">{action}</span></div>
+        <div style="display:flex;gap:12px;"><span style="background:#2f5cff;color:#fff;padding:10px 16px;border-radius:10px;font-size:15px;">{action}</span></div>
         """,
     },
 ]
@@ -149,27 +149,28 @@ def build_mockup_html(seed: str) -> Mockup:
     context = pick_context(seed)
     variety = pick_variety(seed)
     rows = "".join(
-        f'<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #eef0f5;color:#1c2130;font-size:14px;">'
-        f'<span>{line}</span><span style="color:#5c6480;">—</span></div>'
-        for line in [variety["product"], variety["note"]]
+        f'<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #e6e9f0;color:#1c2130;font-size:15px;">'
+        f'<span>{line}</span><span style="color:#3a4256;font-weight:600;">{amount}</span></div>'
+        for line, amount in [(variety["product"], f'{variety["price"]:,} ₽'), (variety["note"], "1 шт.")]
     )
     flaw_html = flaw["html"].replace("{product}", variety["product"]).replace("{action}", variety["action"])
     html = f"""<!DOCTYPE html>
 <html lang="ru"><head><meta charset="utf-8"><style>
 * {{ box-sizing: border-box; font-family: -apple-system, Segoe UI, Roboto, sans-serif; }}
-body {{ margin:0; background:#f4f5f8; }}
-.screen {{ width:100%; min-height:100vh; background:#ffffff; padding:16px; }}
-.bar {{ display:flex; align-items:center; justify-content:space-between; padding:6px 0 14px; }}
-.bar h1 {{ font-size:18px; margin:0; color:#1c2130; }}
-.card {{ background:#ffffff; border-radius:14px; box-shadow:0 2px 10px rgba(20,25,50,0.06); padding:14px; margin-bottom:12px; }}
-.muted {{ color:#8891a8; font-size:13px; }}
+body {{ margin:0; background:#ffffff; }}
+.screen {{ width:100%; min-height:100vh; background:#ffffff; padding:20px; }}
+.bar {{ display:flex; align-items:center; justify-content:space-between; padding:4px 0 18px; }}
+.bar h1 {{ font-size:20px; margin:0; color:#1c2130; }}
+.card {{ background:#ffffff; border:1px solid #e6e9f0; border-radius:14px; padding:14px; margin-bottom:14px; }}
+.label {{ color:#3a4256; font-size:15px; margin-bottom:6px; }}
+.total {{ font-size:22px; font-weight:700; color:#1c2130; }}
 </style></head><body>
 <div class="screen">
-  <div class="bar"><h1>{context["title"]}</h1><div style="color:#8891a8;font-size:13px;">Закрыть</div></div>
+  <div class="bar"><h1>{context["title"]}</h1><span style="color:#2f5cff;font-size:15px;font-weight:600;">Готово</span></div>
   <div class="card">{rows}</div>
   <div class="card">{flaw_html}</div>
-  <div class="card"><div class="muted">Итого · {variety["quantity"]} шт.</div><div style="font-size:20px;font-weight:700;color:#1c2130;">{variety["price"]:,} ₽</div></div>
-  <div style="background:#1c2130;color:#ffffff;text-align:center;padding:14px;border-radius:12px;font-size:16px;font-weight:600;">{variety["action"]}</div>
+  <div class="card"><div class="label">Итого · {variety["quantity"]} шт.</div><div class="total">{variety["price"]:,} ₽</div></div>
+  <div style="background:#2f5cff;color:#ffffff;text-align:center;padding:16px;border-radius:12px;font-size:16px;font-weight:600;">{variety["action"]}</div>
 </div>
 </body></html>"""
     scenario = (

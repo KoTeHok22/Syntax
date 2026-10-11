@@ -8,20 +8,33 @@ from openai import OpenAIError
 from backend.services.llm import StubLLMClient, get_llm_client
 from backend.services.prompts import get_examples, get_prompt, render
 
-DEFAULT_TASK_GENERATION_PROMPT = """Сгенерируй задачу на концепт "{concept_name}" для грейда {grade}.
+DEFAULT_TASK_GENERATION_PROMPT = """Ты — методист, который придумывает тестовые задания для проверки ИТ-специалистов.
+Тема задания: "{topic}". Домен: {domain}. Грейд: {grade}. Формат ответа: {task_format}.
 Ограничения по сложности: {difficulty_params}.
-Формат: {task_format}.
-Сформулируй условие коротко: 2–4 предложения, только прикладной контекст, данные и вопрос.
-Оформляй условие удобно для чтения: разделяй абзацы пустой строкой (символ \n\n), а данные
-(журнал операций, список, таблица, фрагмент кода) выноси отдельной строкой или блоком кода
-в тройных обратных кавычках с указанием языка. Вопрос ставь в последнем абзаце отдельной строкой.
-КАТЕГОРИЧЕСКИ запрещено подсказывать решение: не называй алгоритм, структуру данных,
-паттерн или метод, который является ответом, и не описывай ход решения в условии.
-Дай только постановку задачи и данные. Варианты ответа формулируй как равноправные гипотезы.
-Верни JSON с ключами: statement, options, reference_answer. Для формата multiple_choice
-options — список из 4 строк, reference_answer — индекс верного варианта (0-3).
-Для формата code reference_answer — эталонное решение строкой, options — пустой список.
-Ответ должен быть строго валидным JSON без markdown-обёртки и пояснений."""
+
+Придумай ОДНО НОВОЕ задание с нуля. Не пересказывай известные примеры и не копируй формулировки из учебников — придумай собственный прикладной сценарий.
+
+Требования к заданию:
+- Начни с реалистичного прикладного контекста: продукт, команда или система, конкретная задача или инцидент (2–4 предложения).
+- Дай конкретные данные: числа, список, журнал операций, фрагмент данных или кода — то, с чем нужно работать.
+- В последнем абзаце задай один точный вопрос отдельной строкой.
+- Условие должно быть однозначным: эксперт с нужным грейдом может выбрать единственный правильный ответ.
+- Категорически запрещено подсказывать решение: нельзя называть в условии алгоритм, структуру данных, паттерн, метод или подход, который является ответом, и нельзя описывать ход решения.
+- Задание не должно быть тривиальным: проверяй понимание, а не память.
+- Весь текст на русском, без воды и рекламных оборотов.
+
+Оформление условия (важно для читаемости):
+- Абзацы разделяй пустой строкой.
+- Данные (журнал, список, таблица, фрагмент кода) выноси в отдельный блок: либо строкой, либо блоком кода в тройных обратных кавычках с указанием языка.
+- Вопрос — отдельным последним абзацем.
+
+Требования к вариантам ответа:
+- Ровно 4 варианта, все правдоподобные для новичка, но только один верный.
+- Дистракторы — типичные заблуждения, близкие по теме, но неверные по сути.
+- Варианты не должны различаться длиной или формулировкой, выдающей правильный.
+
+Верни строго валидный JSON без markdown-обёртки и пояснений, ровно с ключами:
+statement (строка, полное условие с данными и вопросом), options (список из 4 строк), reference_answer (индекс верного варианта, 0–3)."""
 
 
 class _SafeFormat(dict):
@@ -49,15 +62,14 @@ def _examples_block() -> str:
 
 def build_prompt(concept, grade: str) -> str:
     template = get_prompt("task_generation", DEFAULT_TASK_GENERATION_PROMPT)
-    base = render(
+    return render(
         template,
-        concept_name=concept.name,
+        topic=concept.name,
+        domain=getattr(concept, "domain", "") or "",
         grade=grade,
         difficulty_params=json.dumps(concept.difficulty_params, ensure_ascii=False),
         task_format=concept.task_format,
     )
-    block = _examples_block()
-    return base + ("\n" + block if block else "")
 
 
 DESIGN_DOMAINS = {"design"}
@@ -121,12 +133,20 @@ async def llm_task(concept, grade: str) -> TaskDraft | None:
     if is_design_concept(concept):
         return await _llm_design_task(concept, grade, client)
     try:
-        raw = await client.complete(build_prompt(concept, grade))
+        raw = await client.complete(build_prompt(concept, grade) + "\n" + _examples_block())
     except OpenAIError:
         return None
     if not raw:
         return None
-    return parse_llm_response(raw, concept.task_format)
+    draft = parse_llm_response(raw, concept.task_format)
+    if draft is None:
+        return None
+    if concept.task_format == "multiple_choice":
+        if not isinstance(draft.options, list) or len(draft.options) != 4:
+            return None
+        if not isinstance(draft.reference_answer, int) or not 0 <= draft.reference_answer < 4:
+            return None
+    return draft
 
 
 DESIGN_DOMAINS_BLOCK = (

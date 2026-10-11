@@ -77,7 +77,7 @@ def test_llm_task_generation(monkeypatch):
         task_generation,
         "get_llm_client",
         lambda: FakeLLMClient(
-            ['{"statement": "Задача от LLM", "options": ["a", "b"], "reference_answer": 1}']
+            ['{"statement": "Задача от LLM", "options": ["a", "b", "c", "d"], "reference_answer": 1}']
         ),
     )
 
