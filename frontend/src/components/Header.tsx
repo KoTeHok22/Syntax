@@ -224,7 +224,7 @@ export function Header() {
               {user.role === 'employer' && !profileLoaded ? (
                 <span aria-hidden="true" className="h-3.5 w-28 max-w-full animate-pulse rounded bg-ink/15" />
               ) : (
-                <span className="max-w-full truncate font-mono text-[13px] font-bold text-ink">
+                <span className="max-w-full truncate font-sans text-[13px] font-bold text-ink">
                   {user.role === 'employer' ? companyName ?? 'Профиль компании' : user.pvn_id ? `ПВН ${user.pvn_id}` : user.email.split('@')[0]}
                 </span>
               )}

@@ -3,6 +3,7 @@ import { ApiError } from '../../api/client'
 import { fetchEmployerProfile, fetchIncomingApplications, scheduleInterview, updateApplicationStatus, anonymousCandidateId } from '../../api/platform'
 import type { Application, CompanyOffice } from '../../api/platform'
 import { Modal } from '../../components/Modal'
+import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { retryATSDelivery } from '../../api/ats'
 import type { ATSDeliveryResult, ATSDeliveryStatus } from '../../api/ats'
 import { statusPill } from '../../lib/statusPill'
@@ -103,6 +104,7 @@ export function EmployerApplicationsPage() {
   const [isSubmittingInterview, setIsSubmittingInterview] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [busyApplicationId, setBusyApplicationId] = useState<number | null>(null)
+  const [rejecting, setRejecting] = useState<Application | null>(null)
   const [offices, setOffices] = useState<CompanyOffice[]>([])
   const [deliveryByApplication, setDeliveryByApplication] = useState<Record<number, ApplicationDelivery>>({})
   const [deliveryBusyId, setDeliveryBusyId] = useState<number | null>(null)
@@ -185,6 +187,12 @@ export function EmployerApplicationsPage() {
     } finally {
       setBusyApplicationId(null)
     }
+  }
+
+  const confirmReject = async () => {
+    if (rejecting === null) return
+    await changeStatus(rejecting, 'rejected')
+    setRejecting(null)
   }
 
   const retryDelivery = async (application: Application) => {
@@ -408,7 +416,7 @@ export function EmployerApplicationsPage() {
                     <button
                       className="btn-ghost py-2 text-[13px]"
                       disabled={busyApplicationId === application.id}
-                      onClick={() => void changeStatus(application, 'rejected')}
+                      onClick={() => setRejecting(application)}
                       type="button"
                     >
                       <span className="material-symbols-outlined text-[18px]">close</span>
@@ -632,6 +640,17 @@ export function EmployerApplicationsPage() {
           </div>
         </Modal>
       ) : null}
+
+      <ConfirmDialog
+        confirmLabel="Отклонить"
+        busy={rejecting !== null && busyApplicationId === rejecting.id}
+        description="Кандидат получит отказ, действие необратимо."
+        onCancel={() => setRejecting(null)}
+        onConfirm={() => void confirmReject()}
+        open={rejecting !== null}
+        title="Отклонить отклик?"
+        tone="danger"
+      />
 
       {toast !== null ? (
         <div className="fixed bottom-6 right-6 z-[60] flex max-w-sm items-start gap-3 rounded-panel bg-pvn-dark px-5 py-4 shadow-raised-lg">
