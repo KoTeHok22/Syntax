@@ -199,7 +199,15 @@ async def start_test_session(
     )
     if concept_domains:
         pool_query = pool_query.filter(Concept.domain.in_(concept_domains))
-    pool_tasks = pool_query.order_by(Task.id).limit(pool_limit).all()
+    seen_concept_ids: set[int] = set()
+    pool_tasks: list[Task] = []
+    for candidate_task in pool_query.order_by(Task.id).all():
+        if candidate_task.concept_id in seen_concept_ids:
+            continue
+        seen_concept_ids.add(candidate_task.concept_id)
+        pool_tasks.append(candidate_task)
+        if len(pool_tasks) >= pool_limit:
+            break
     generated = 0
     for pool_task in pool_tasks:
         pool_task.candidate_profile_id = candidate_profile.id
@@ -226,7 +234,18 @@ async def start_test_session(
                 .all()
             )
         if concepts:
-            objective = [c for c in concepts if c.task_format != DESIGN_ANNOTATION_FORMAT][:remaining]
+            objective = [
+                concept
+                for concept in concepts
+                if concept.task_format != DESIGN_ANNOTATION_FORMAT and concept.id not in seen_concept_ids
+            ][:remaining]
+            if len(objective) < remaining:
+                fallback_repeats = [
+                    concept
+                    for concept in concepts
+                    if concept.task_format != DESIGN_ANNOTATION_FORMAT and concept.id in seen_concept_ids
+                ]
+                objective = objective + fallback_repeats[: remaining - len(objective)]
             drafts = await asyncio.gather(
                 *(llm_task(concept, request.grade) for concept in objective)
             )
