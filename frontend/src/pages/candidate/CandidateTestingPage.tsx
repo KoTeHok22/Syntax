@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { ApiError } from '../../api/client'
 import { fetchTestSession, fetchTestSessions, startTestSession, submitAnswers } from '../../api/testing'
@@ -16,7 +16,7 @@ const TASKS_PER_SESSION = 20
 const TEST_RULES = [
   'Одна попытка на каждую сессию тестирования — вернуться к уже начатому тесту можно, но начать заново нельзя.',
   'На всё тестирование отводится ограниченное время; по истечении таймера ответы отправляются автоматически.',
-  'Копирование и вставка текста отключены, тест проходит в полноэкранном режиме.',
+  'Тест проходит в полноэкранном режиме: выход из него автоматически завершает тест, отвеченные вопросы зачтутся, остальные — как неверные.',
   'Грейд подтверждается только при наборе порога баллов для выбранного грейда.',
   'Подтверждённый грейд действует 12 месяцев, затем требуется пересдача.']
 
@@ -94,6 +94,7 @@ export function CandidateTestingPage() {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [rulesGrade, setRulesGrade] = useState<string | null>(null)
   const [rulesAccepted, setRulesAccepted] = useState(false)
+  const submittingRef = useRef(false)
 
   useEffect(() => {
     const requested = searchParams.get('grade')
@@ -129,6 +130,7 @@ export function CandidateTestingPage() {
     setSelectedGrade(null)
     setError(null)
     setScreen('quiz')
+    void document.documentElement.requestFullscreen?.().catch(() => undefined)
   }
 
   const resume = async (target: TestSession) => {
@@ -174,15 +176,17 @@ export function CandidateTestingPage() {
 
   const submitSession = useCallback(
     async (allowPartial: boolean) => {
-      if (session === null) return
+      if (session === null || submittingRef.current) return
       const answeredCount = session.tasks.filter((item) => isAnswered(item)).length
       if (!allowPartial && answeredCount < session.tasks.length) {
         setError('Ответьте на все вопросы перед завершением теста')
         return
       }
+      submittingRef.current = true
       setError(null)
       setIsBusy(true)
       try {
+        if (document.fullscreenElement) await document.exitFullscreen().catch(() => undefined)
         const payload: AnswerPayload[] = []
         session.tasks.forEach((item) => {
           if (item.task_format === 'design_annotation') {
@@ -202,6 +206,7 @@ export function CandidateTestingPage() {
         setScreen('result')
         void loadHistory()
       } catch (exception) {
+        submittingRef.current = false
         if (exception instanceof ApiError) setError(exception.detail)
         else setError('Не удалось связаться с сервером')
       } finally {
@@ -240,7 +245,11 @@ export function CandidateTestingPage() {
     document.addEventListener('cut', onCopy)
     document.addEventListener('paste', onCopy)
     document.addEventListener('contextmenu', prevent)
-    const onFullscreenChange = () => setIsFullscreen(document.fullscreenElement !== null)
+    const onFullscreenChange = () => {
+      const active = document.fullscreenElement !== null
+      setIsFullscreen(active)
+      if (!active && !submittingRef.current) void submitSession(true)
+    }
     document.addEventListener('fullscreenchange', onFullscreenChange)
     return () => {
       document.removeEventListener('copy', onCopy)
@@ -249,7 +258,7 @@ export function CandidateTestingPage() {
       document.removeEventListener('contextmenu', prevent)
       document.removeEventListener('fullscreenchange', onFullscreenChange)
     }
-  }, [screen])
+  }, [screen, submitSession])
 
   const enterFullscreen = () => {
     const element = document.documentElement
@@ -430,7 +439,7 @@ export function CandidateTestingPage() {
               type="button"
             >
               <span className="material-symbols-outlined text-[18px]">fullscreen</span>
-              Перейдите в полноэкранный режим — копирование и вставка отключены
+              Вернитесь в полноэкранный режим. При выходе тест завершается автоматически.
             </button>
           ) : null}
 

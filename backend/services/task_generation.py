@@ -6,8 +6,9 @@ from dataclasses import dataclass
 from openai import OpenAIError
 
 from backend.services.llm import StubLLMClient, get_llm_client
+from backend.services.prompts import get_examples, get_prompt, render
 
-TASK_GENERATION_PROMPT = """Сгенерируй задачу на концепт "{concept_name}" для грейда {grade}.
+DEFAULT_TASK_GENERATION_PROMPT = """Сгенерируй задачу на концепт "{concept_name}" для грейда {grade}.
 Ограничения по сложности: {difficulty_params}.
 Формат: {task_format}.
 Сформулируй условие коротко: 2–4 предложения, только прикладной контекст, данные и вопрос.
@@ -36,13 +37,27 @@ class TaskDraft:
     reference_answer: object
 
 
+def _examples_block() -> str:
+    examples = get_examples("task_generation")
+    if not examples:
+        return ""
+    lines = ["Примеры хорошо сформулированных заданий (это ПРИМЕРЫ формата и стиля, а не шаблон для копирования — придумай своё содержание под концепт):"]
+    for example in examples[:3]:
+        lines.append(json.dumps(example, ensure_ascii=False))
+    return "\n".join(lines)
+
+
 def build_prompt(concept, grade: str) -> str:
-    return TASK_GENERATION_PROMPT.format(
+    template = get_prompt("task_generation", DEFAULT_TASK_GENERATION_PROMPT)
+    base = render(
+        template,
         concept_name=concept.name,
         grade=grade,
         difficulty_params=json.dumps(concept.difficulty_params, ensure_ascii=False),
         task_format=concept.task_format,
     )
+    block = _examples_block()
+    return base + ("\n" + block if block else "")
 
 
 DESIGN_DOMAINS = {"design"}
@@ -100,11 +115,11 @@ def fallback_task(concept, seed: str, context_labels: list[str]) -> TaskDraft | 
 
 
 async def llm_task(concept, grade: str) -> TaskDraft | None:
-    if is_design_concept(concept):
-        return None
     client = get_llm_client()
     if isinstance(client, StubLLMClient):
         return None
+    if is_design_concept(concept):
+        return await _llm_design_task(concept, grade, client)
     try:
         raw = await client.complete(build_prompt(concept, grade))
     except OpenAIError:
@@ -112,6 +127,45 @@ async def llm_task(concept, grade: str) -> TaskDraft | None:
     if not raw:
         return None
     return parse_llm_response(raw, concept.task_format)
+
+
+DESIGN_DOMAINS_BLOCK = (
+    "Это задание по дизайну интерфейсов. Пиши только про визуальный дизайн, UX, доступность, "
+    "иерархию, состояния интерфейса и эвристики. НЕ упоминай программирование, верстку, "
+    "библиотеки, фреймворки, код, алгоритмы, серверы и базы данных."
+)
+
+DEFAULT_DESIGN_QUESTION_PROMPT = """Ты составляешь вопрос по дизайну интерфейсов.
+Концепт: "{concept_name}". Грейд: {grade}.
+{constraints}
+Сформулируй прикладную ситуацию на 2–3 предложения и вопрос. Дай 4 равнозначных варианта ответа,
+ровно один верный. Верни JSON с ключами: statement, options, reference_answer (индекс верного 0-3)."""
+
+
+async def _llm_design_task(concept, grade: str, client) -> TaskDraft | None:
+    template = get_prompt("design_question", DEFAULT_DESIGN_QUESTION_PROMPT)
+    prompt = render(
+        template,
+        concept_name=concept.name,
+        grade=grade,
+        constraints=DESIGN_DOMAINS_BLOCK,
+    )
+    examples = get_examples("design_question")
+    if examples:
+        prompt += "\nПримеры (ПРИМЕРЫ формата и стиля, придумай своё содержание под концепт):\n"
+        prompt += "\n".join(json.dumps(example, ensure_ascii=False) for example in examples[:3])
+    try:
+        raw = await client.complete(prompt)
+    except OpenAIError:
+        return None
+    if not raw:
+        return None
+    draft = parse_llm_response(raw, "design_choice")
+    if draft is None or len(draft.options) != 4:
+        return None
+    if not isinstance(draft.reference_answer, int) or not 0 <= draft.reference_answer < len(draft.options):
+        return None
+    return draft
 
 
 async def generate_task(concept, grade: str, seed: str = "", context_labels: list[str] | None = None) -> TaskDraft | None:

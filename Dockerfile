@@ -11,6 +11,7 @@ COPY scripts scripts
 COPY migrations migrations
 COPY docs/assets/fonts docs/assets/fonts
 COPY alembic.ini .
+COPY prompts.json .
 
 EXPOSE 8000
 

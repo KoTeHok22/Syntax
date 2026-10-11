@@ -29,7 +29,16 @@ from backend.schemas.testing import (
     TestSessionSummary,
 )
 from backend.services.task_generation import check_answer, fallback_task, llm_task
-from backend.services.design_mockups import Mockup, build_llm_mockup_html, grade_annotation, normalize_annotation, render_html_to_png, renderer_available, to_data_url
+from backend.services.design_mockups import (
+    Mockup,
+    annotated_data_url,
+    build_llm_mockup_html,
+    grade_annotation,
+    normalize_annotation,
+    render_html_to_png,
+    renderer_available,
+    to_data_url,
+)
 from backend.services.semantic_matching import index_candidate
 
 router = APIRouter()
@@ -296,11 +305,18 @@ async def submit_answers(
 
     annotation_inputs = [s for s in submissions if tasks[s.task_id].task_format == DESIGN_ANNOTATION_FORMAT]
     annotation_feedback: dict[int, tuple[bool, str]] = {}
+    annotation_preview: dict[int, str] = {}
     if annotation_inputs:
         graded = await asyncio.gather(
             *(grade_annotation_task(tasks[s.task_id], s) for s in annotation_inputs)
         )
         annotation_feedback = {s.task_id: result for s, result in zip(annotation_inputs, graded)}
+        for submission in annotation_inputs:
+            raw_annotation = submission.annotation.model_dump() if submission.annotation is not None else None
+            annotation_preview[submission.task_id] = annotated_data_url(
+                tasks[submission.task_id].image_data_url,
+                normalize_annotation(raw_annotation),
+            )
 
     def is_correct(submission) -> bool:
         if tasks[submission.task_id].task_format == DESIGN_ANNOTATION_FORMAT:
@@ -321,7 +337,11 @@ async def submit_answers(
             task_format=tasks[s.task_id].task_format,
             answer_text=s.answer,
             feedback=annotation_feedback.get(s.task_id, (False, ""))[1] or None,
-            image_data_url=tasks[s.task_id].image_data_url if tasks[s.task_id].task_format == DESIGN_ANNOTATION_FORMAT else None,
+            image_data_url=(
+                annotation_preview.get(s.task_id) or tasks[s.task_id].image_data_url
+                if tasks[s.task_id].task_format == DESIGN_ANNOTATION_FORMAT
+                else None
+            ),
         )
         for s in submissions
     ]

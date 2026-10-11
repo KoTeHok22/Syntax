@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 from backend.core.config import get_settings
 from backend.services.llm import StubLLMClient, get_llm_client
+from backend.services.prompts import get_examples, get_prompt, render
 
 MAX_HTML_BYTES = 60000
 MAX_SCREENSHOT_BYTES = 2 * 1024 * 1024
@@ -187,11 +188,34 @@ body {{ margin:0; background:#f4f5f8; }}
     )
 
 
-MOCKUP_PROMPT = """Сгенерируй HTML мобильного экрана приложения «{app}».
+MOCKUP_PROMPT = """Сгенерируй мобильный экран приложения «{app}» и верни строго JSON без markdown:
+{{"html": "<полный HTML-документ>", "flaw_title": "кратко", "flaw_description": "суть", "region": {{"x": 0.0, "y": 0.0, "w": 0.0, "h": 0.0}}}}
 Экран: «{title}». Сценарий: {scenario}
 Внеси ровно одну намеренную ошибку дизайна: {flaw}.
-Требования: ширина 390px, белый фон, крупные читаемые шрифты, только инлайн-стили, без скриптов.
-Верни строго HTML-документ без markdown и без пояснений."""
+region — доля от ширины и высоты экрана (0..1), где находится проблемный элемент.
+В HTML: ширина 390px, белый фон, только инлайн-стили, без скриптов."""
+
+
+def _mockup_examples_block() -> str:
+    examples = get_examples("design_mockup")
+    if not examples:
+        return ""
+    lines = ["Примеры корректных макетов (ПРИМЕРЫ, не копируй дословно):"]
+    for example in examples[:2]:
+        lines.append(json.dumps(example, ensure_ascii=False))
+    return "\n".join(lines)
+
+
+def _parse_json_object(raw: str) -> dict | None:
+    text = (raw or "").strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```[a-zA-Z]*\s*", "", text)
+        text = re.sub(r"\s*```$", "", text)
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        return None
+    return data if isinstance(data, dict) else None
 
 
 async def build_llm_mockup_html(seed: str) -> Mockup:
@@ -199,28 +223,36 @@ async def build_llm_mockup_html(seed: str) -> Mockup:
     client = get_llm_client()
     if isinstance(client, StubLLMClient):
         return deterministic
+    template = get_prompt("design_mockup", MOCKUP_PROMPT)
+    prompt = render(
+        template,
+        app="Мобильный клиент",
+        title=pick_context(seed)["title"],
+        scenario=deterministic.scenario,
+        flaw=deterministic.flaw.description,
+    )
+    block = _mockup_examples_block()
+    if block:
+        prompt = prompt + "\n" + block
     try:
-        raw = await client.complete(
-            MOCKUP_PROMPT.format(
-                app="Мобильный клиент",
-                title=pick_context(seed)["title"],
-                scenario=deterministic.scenario,
-                flaw=deterministic.flaw.description,
-            )
-        )
+        raw = await client.complete(prompt)
     except Exception:
         return deterministic
-    html = _extract_html(raw or "")
+    data = _parse_json_object(raw or "")
+    if data is None:
+        return deterministic
+    html = _extract_html(str(data.get("html", "")))
     if not html or len(html.encode("utf-8")) > MAX_HTML_BYTES:
         return deterministic
+    region = normalize_annotation(data.get("region")) or {}
     return Mockup(
         html=html,
         scenario=deterministic.scenario,
         flaw=MockupFlaw(
             flaw_id=deterministic.flaw.flaw_id,
-            title=deterministic.flaw.title,
-            description=deterministic.flaw.description,
-            region={},
+            title=str(data.get("flaw_title") or deterministic.flaw.title)[:200],
+            description=str(data.get("flaw_description") or deterministic.flaw.description)[:600],
+            region=region,
         ),
         source="llm",
     )
@@ -258,7 +290,7 @@ async def render_html_to_png(html: str) -> bytes:
         try:
             page = await browser.new_page(viewport={"width": width, "height": height}, device_scale_factor=2)
             await page.set_content(html, wait_until="load", timeout=timeout_ms)
-            return await page.screenshot(full_page=False, type="png", timeout=timeout_ms)
+            return await page.screenshot(full_page=True, type="png", timeout=timeout_ms)
         finally:
             await browser.close()
 
@@ -278,6 +310,46 @@ async def build_mockup_png(seed: str) -> Mockup | None:
 
 def to_data_url(png: bytes) -> str:
     return "data:image/png;base64," + base64.b64encode(png).decode("ascii")
+
+
+def annotate_png(png_bytes: bytes, annotation: dict | None) -> bytes:
+    if not annotation:
+        return png_bytes
+    try:
+        import io
+
+        from PIL import Image, ImageDraw
+
+        image = Image.open(io.BytesIO(png_bytes)).convert("RGB")
+        width, height = image.size
+        draw = ImageDraw.Draw(image, "RGBA")
+        x0 = int(annotation["x"] * width)
+        y0 = int(annotation["y"] * height)
+        x1 = int((annotation["x"] + annotation["w"]) * width)
+        y1 = int((annotation["y"] + annotation["h"]) * height)
+        thickness = max(3, width // 120)
+        for offset in range(thickness):
+            draw.rectangle(
+                [x0 - offset, y0 - offset, x1 + offset, y1 + offset],
+                outline=(220, 40, 40, 255),
+            )
+        draw.rectangle([x0, y0, x1, y1], fill=(220, 40, 40, 48))
+        buffer = io.BytesIO()
+        image.save(buffer, format="PNG")
+        return buffer.getvalue()
+    except Exception:
+        return png_bytes
+
+
+def annotated_data_url(image_data_url: str, annotation: dict | None) -> str:
+    if not image_data_url or not image_data_url.startswith("data:image/"):
+        return image_data_url
+    try:
+        header, _, payload = image_data_url.partition(",")
+        png = base64.b64decode(payload)
+    except Exception:
+        return image_data_url
+    return to_data_url(annotate_png(png, annotation))
 
 
 def region_contains(region: dict, annotation: dict) -> bool:
@@ -312,9 +384,10 @@ def normalize_annotation(raw) -> dict | None:
 
 
 VISION_GRADE_PROMPT = """Ты проверяешь ответ дизайнера. На изображении мобильного экрана намеренно внесена одна ошибка дизайна.
+Красным прямоугольником отмечена область, которую выбрал кандидат.
 Какой именно дефект заложен: «{reference}».
-Что сделал кандидат: выделил область и написал пояснение: «{note}».
-Оцени по двум условиям: (1) выделенная область действительно указывает на заложенный дефект; (2) пояснение называет суть нарушения.
+Пояснение кандидата: «{note}».
+Оцени по двум условиям: (1) красная область действительно указывает на заложенный дефект; (2) пояснение называет суть нарушения.
 Отвечай доброжелательно и по делу, без домыслов о том, чего кандидат «не заметил».
 Верни строго JSON без markdown: {{"correct": true|false, "feedback": "одно короткое предложение на русском"}}"""
 
@@ -327,9 +400,11 @@ async def grade_annotation(image_data_url: str, reference: str, note: str, annot
     client = get_llm_client()
     if not isinstance(client, StubLLMClient):
         try:
+            marked = annotated_data_url(image_data_url, annotation)
+            template = get_prompt("design_grading", VISION_GRADE_PROMPT)
             raw = await client.complete_with_image(
-                VISION_GRADE_PROMPT.format(reference=reference, note=note[:600]),
-                image_data_url,
+                render(template, reference=reference, note=note[:600]),
+                marked,
             )
             parsed = _parse_grade(raw or "")
             if parsed is not None:

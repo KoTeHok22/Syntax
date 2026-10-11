@@ -5,6 +5,7 @@ from pypdf import PdfReader
 from pypdf.errors import PdfReadError
 
 from backend.services.llm import StubLLMClient, get_llm_client
+from backend.services.prompts import get_prompt, render
 
 RESUME_PARSE_PROMPT = """Извлеки из резюме данные и верни строго JSON с ключами:
 full_name (строка), contacts (объект с любыми найденными контактами),
@@ -54,7 +55,7 @@ async def parse_resume(file_bytes: bytes) -> dict:
     if isinstance(client, StubLLMClient):
         return {"resume_chars": len(text), "resume_text": text[:12000]}
     try:
-        raw = await client.complete(RESUME_PARSE_PROMPT.format(resume_text=text[:6000]))
+        raw = await client.complete(render(get_prompt("resume_parse", RESUME_PARSE_PROMPT), resume_text=text[:6000]))
     except Exception:
         raw = ""
     if not raw:

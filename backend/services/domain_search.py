@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from backend.core.domain_matching import canonical_key, nearest_domain, normalize, rank_domains
 from backend.models import Domain
 from backend.services.llm import StubLLMClient, get_llm_client
+from backend.services.prompts import get_prompt, render
 
 QUERY_EXPANSION_PROMPT = """Ты помогаешь искать специалистов по направлениям в IT.
 Запрос работодателя: "{query}".
@@ -20,7 +21,7 @@ async def expand_query_terms(query: str) -> list[str]:
     if isinstance(client, StubLLMClient):
         return []
     try:
-        raw = await client.complete(QUERY_EXPANSION_PROMPT.format(query=query))
+        raw = await client.complete(render(get_prompt("query_expansion", QUERY_EXPANSION_PROMPT), query=query))
     except OpenAIError:
         return []
     except Exception:
