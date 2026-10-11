@@ -79,7 +79,7 @@ def pluralize_years(value: float) -> str:
 def format_years(value: float) -> str:
     if value == int(value):
         return f"{int(value)} {pluralize_years(value)}"
-    return f"{value:g} {pluralize_years(value)}"
+    return f"{value:g}".replace(".", ",") + f" {pluralize_years(value)}"
 
 
 def format_date(value) -> str:

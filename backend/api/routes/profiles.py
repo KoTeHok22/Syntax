@@ -61,7 +61,8 @@ def download_profile_pdf(
         .filter(PvnAchievement.candidate_profile_id == profile.id)
         .all()
     )
-    pdf_bytes = build_profile_pdf(profile, sessions, achievements)
+    score, _ = candidate_score(db, profile)
+    pdf_bytes = build_profile_pdf(profile, sessions, achievements, score)
     return StreamingResponse(
         iter([pdf_bytes]),
         media_type="application/pdf",

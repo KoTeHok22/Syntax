@@ -511,6 +511,6 @@ def test_profile_pdf_localizes_enums_and_does_not_duplicate_grade():
     text = "\n".join(page.extract_text() or "" for page in PdfReader(BytesIO(pdf)).pages)
     assert "Специализация: Frontend" in text
     assert "Грейд: Junior" in text
-    assert "Junior: 3/5 верно" in text
+    assert "3 из 5" in text
     assert "Грейд: junior" not in text
     assert "Грейд junior" not in text
