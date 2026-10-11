@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ApiError } from '../../api/client'
 import {
+  fetchVacancyTaskSummary,
   startRegularTaskSession,
   submitRegularTaskAnswers,
 } from '../../api/platform'
@@ -37,6 +38,7 @@ export function CandidateRegularTasksPage() {
   const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [confirmingFinish, setConfirmingFinish] = useState(false)
+  const [availableTaskCount, setAvailableTaskCount] = useState<number | null>(null)
   const submittingRef = useRef(false)
 
   const beginSession = (next: RegularTaskSession) => {
@@ -55,7 +57,23 @@ export function CandidateRegularTasksPage() {
     setTaskIndex(0)
     setError(null)
     setConfirmingFinish(false)
+    setAvailableTaskCount(null)
   }, [vacancyId])
+
+  useEffect(() => {
+    if (!hasVacancy) return
+    let cancelled = false
+    fetchVacancyTaskSummary(vacancyId)
+      .then((summary) => {
+        if (!cancelled) setAvailableTaskCount(summary.task_count)
+      })
+      .catch(() => {
+        if (!cancelled) setAvailableTaskCount(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [hasVacancy, vacancyId])
 
   const start = useCallback(async () => {
     if (!hasVacancy) return
@@ -206,6 +224,17 @@ export function CandidateRegularTasksPage() {
           </div>
         </div>
       ) : session === null ? (
+        availableTaskCount === 0 ? (
+          <div className="flex flex-col items-start gap-4 rounded-panel bg-raised p-6 shadow-raised">
+            <div className="flex flex-col gap-2">
+              <span className="font-mono text-h2 font-bold text-ink">Заданий пока нет</span>
+              <span className="font-sans text-caption text-ink-secondary">
+                По этой вакансии работодатель ещё не опубликовал проверочные задания. Загляните позже — задания появятся здесь.
+              </span>
+            </div>
+            <Link className="btn-ghost" to="/candidate/vacancies">К вакансиям</Link>
+          </div>
+        ) : (
         <div className="flex flex-col items-start gap-4 rounded-panel bg-raised p-6 shadow-raised">
           <div className="flex flex-col gap-2">
             <span className="font-mono text-h2 font-bold text-ink">Готовы приступить?</span>
@@ -213,10 +242,11 @@ export function CandidateRegularTasksPage() {
               Задания открываются в полноэкранном режиме. Тест нельзя поставить на паузу, копирование и вставка отключены. Выход из полноэкранного режима, переход в другую вкладку или приложение завершают попытку: отвеченные задания зачтутся, остальные — как неверные.
             </span>
           </div>
-          <button className="btn-primary" disabled={isBusy} onClick={() => void start()} type="button">
-            {isBusy ? 'Загрузка…' : 'Начать задания'}
+          <button className="btn-primary" disabled={isBusy || availableTaskCount === null} onClick={() => void start()} type="button">
+            {isBusy ? 'Загрузка…' : availableTaskCount !== null ? `Начать задания (${availableTaskCount})` : 'Проверяем задания…'}
           </button>
         </div>
+        )
       ) : task === undefined ? (
         <SkeletonTask />
       ) : (
