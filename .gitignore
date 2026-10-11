@@ -31,3 +31,17 @@ PLAN.md
 PROJECT_STATUS.md
 PLAN_HACKATHON.md
 .kilo/
+.vite/
+.pytest_tmp/
+.coverage.*
+.e2e.db
+repomix-output.*
+frontend/test-results/
+frontend/playwright-report/
+*.pptx
+*.webm
+*.woff
+*.woff2
+*.env
+.env.*
+!.env.example
