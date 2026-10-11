@@ -387,9 +387,15 @@ export function CandidateProfilePage() {
     )
   }
 
-  const filled = Math.min(
-    100,
-    20 + profile.stack.length * 6 + (profile.full_name !== null ? 15 : 0) + (profile.years_of_experience !== null ? 15 : 0) + (profile.contacts !== null ? 10 : 0),
+  const filled = Math.round(
+    (profile.full_name !== null && profile.full_name.trim() !== '' ? 15 : 0) +
+    (profile.specialization !== null ? 10 : 0) +
+    Math.min(profile.stack.length, 5) * 4 +
+    (profile.years_of_experience !== null ? 15 : 0) +
+    (profile.contacts !== null ? 10 : 0) +
+    (profile.city.trim() !== '' ? 10 : 0) +
+    (profile.work_format !== '' ? 10 : 0) +
+    (profile.soft_skills.length > 0 ? 10 : 0),
   )
 
   return (
@@ -797,6 +803,7 @@ export function CandidateProfilePage() {
               Резюме и PDF-профиль
             </h2>
             <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+              <label className="sr-only" htmlFor="resume-input">Загрузить резюме PDF</label>
               <input
                 accept="application/pdf"
                 className="sr-only"
