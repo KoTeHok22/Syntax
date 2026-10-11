@@ -5,10 +5,17 @@ from backend.api.deps import get_db, require_employer
 from backend.core.config import get_settings
 from backend.core.demo_filter import is_demo_visible
 from backend.core.scoring import (
+    PROOF_TIER_CLAIMED,
     ScoreComponents,
     compute_score,
+    final_score as compute_final_score,
     has_pvn_history,
+    is_verified,
+    meets_relevance_floor,
     profile_completeness,
+    proof_tier,
+    rank_candidates,
+    RankableCandidate,
 )
 from backend.models import (
     CandidateProfile,
@@ -39,7 +46,7 @@ def build_components(candidate: CandidateProfile, achievements, latest_session) 
     pvn_score = None
     if achievements:
         pvn_score = min(100.0, sum(a.score for a in achievements))
-    test_score = latest_session.result_score if latest_session else 0.0
+    test_score = latest_session.result_score if latest_session else None
     return ScoreComponents(
         test_score=test_score,
         pvn_achievements=pvn_score,
@@ -49,6 +56,32 @@ def build_components(candidate: CandidateProfile, achievements, latest_session) 
 
 def match_relevance(candidate_stack: list, required_stack: list) -> float:
     return stack_intersection(candidate_stack, required_stack)
+
+
+def card_proof_tier(components: ScoreComponents) -> str:
+    return proof_tier(components)
+
+
+def sort_cards(cards: list) -> list:
+    ranked = rank_candidates(
+        [
+            RankableCandidate(
+                final_score=card.final_score,
+                score=card.score,
+                proof_tier=getattr(card, "proof_tier", PROOF_TIER_CLAIMED),
+            )
+            for card in cards
+        ]
+    )
+    by_key: dict[tuple[float, float, str], list] = {}
+    for card in cards:
+        key = (card.final_score, card.score, getattr(card, "proof_tier", PROOF_TIER_CLAIMED))
+        by_key.setdefault(key, []).append(card)
+    ordered = []
+    for candidate in ranked:
+        key = (candidate.final_score, candidate.score, candidate.proof_tier)
+        ordered.extend(by_key.pop(key, []))
+    return ordered
 
 
 def verified_pvn_ids(db: Session, candidates: list[CandidateProfile]) -> dict[int, str]:
@@ -82,6 +115,7 @@ def build_card(
     )
     components = build_components(candidate, achievements, latest_session)
     score, breakdown = compute_score(components)
+    tier = card_proof_tier(components)
     match = relevance_breakdown(candidate.stack, required_stack, semantic_similarity)
     relevance = match["relevance"]
     return CandidateCardResponse(
@@ -98,8 +132,10 @@ def build_card(
             for a in achievements
         ],
         match_relevance=round(relevance, 4),
-        final_score=round(score * relevance, 2),
+        final_score=round(compute_final_score(score, relevance), 2),
         match_breakdown=match,
+        proof_tier=tier,
+        is_verified=is_verified(components),
     )
 
 
@@ -137,7 +173,13 @@ async def apply_rerank(query: str, candidates: list) -> list:
     return [candidate for _, candidate in indexed] + tail
 
 
-def apply_card_filters(cards: list, has_pvn: bool | None, min_score: float | None, verified_only: bool | None = None) -> list:
+def apply_card_filters(
+    cards: list,
+    has_pvn: bool | None,
+    min_score: float | None,
+    verified_only: bool | None = None,
+    require_relevance: bool = False,
+) -> list:
     filtered = cards
     if has_pvn is not None:
         filtered = [c for c in filtered if c.has_pvn_history == has_pvn]
@@ -145,6 +187,8 @@ def apply_card_filters(cards: list, has_pvn: bool | None, min_score: float | Non
         filtered = [c for c in filtered if c.is_pvn_verified == verified_only]
     if min_score is not None:
         filtered = [c for c in filtered if c.score >= min_score]
+    if require_relevance:
+        filtered = [c for c in filtered if meets_relevance_floor(c.match_relevance)]
     return filtered
 
 
@@ -189,7 +233,7 @@ def list_category_cards(
         min_score,
         verified_only,
     )
-    cards.sort(key=lambda card: (card.final_score, card.score), reverse=True)
+    cards = sort_cards(cards)
     return cards[skip : skip + limit]
 
 
@@ -288,5 +332,5 @@ async def search_candidates(
         verified_only,
     )
     if not reranked:
-        cards.sort(key=lambda card: (card.final_score, card.score), reverse=True)
+        cards = sort_cards(cards)
     return cards[skip : skip + limit]

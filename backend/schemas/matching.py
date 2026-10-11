@@ -159,6 +159,8 @@ class CandidateCardResponse(BaseModel):
     match_relevance: float
     final_score: float
     match_breakdown: dict = Field(default_factory=dict)
+    proof_tier: str = "claimed"
+    is_verified: bool = False
 
 
 class VisibilityUpdate(BaseModel):

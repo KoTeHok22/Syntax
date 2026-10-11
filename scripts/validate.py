@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 from backend.api.routes.candidates import build_card
+from backend.core.scoring import RELEVANCE_MAX_BONUS, ranking_key
 from backend.core.testing import adaptive_verdict, result_score, suggested_grade
 from backend.models import PvnAchievement, TestSession
 from backend.services import semantic_matching
@@ -139,7 +140,8 @@ def run_stress_suite(mode: str) -> dict:
             candidates_by_vacancy.setdefault(case["vacancy"]["id"], []).append(
                 {"card": card, "relevant": case[side]["relevant"]}
             )
-        difference = cards["verified"].final_score - cards["claimed"].final_score
+        verified_key = ranking_key(cards["verified"].final_score, cards["verified"].score, proof_tier_value=cards["verified"].proof_tier)
+        claimed_key = ranking_key(cards["claimed"].final_score, cards["claimed"].score, proof_tier_value=cards["claimed"].proof_tier)
         rows.append(
             {
                 "id": case["id"],
@@ -152,14 +154,14 @@ def run_stress_suite(mode: str) -> dict:
                 "verified_final": cards["verified"].final_score,
                 "claimed_relevance": cards["claimed"].match_relevance,
                 "verified_relevance": cards["verified"].match_relevance,
-                "verified_higher": difference > 0,
-                "tie": difference == 0,
-                "claimed_higher": difference < 0,
+                "verified_higher": verified_key > claimed_key,
+                "tie": verified_key == claimed_key,
+                "claimed_higher": verified_key < claimed_key,
             }
         )
     top_slots = []
     for candidates in candidates_by_vacancy.values():
-        ranked = sorted(candidates, key=lambda item: (item["card"].final_score, item["card"].score), reverse=True)
+        ranked = sorted(candidates, key=lambda item: ranking_key(item["card"].final_score, item["card"].score, proof_tier_value=item["card"].proof_tier), reverse=True)
         top_slots.extend(ranked[:5])
     relevant_slots = sum(item["relevant"] for item in top_slots)
     return {
@@ -274,8 +276,8 @@ def render_report(results: dict) -> str:
         )
     lines.extend([
         "",
-        "Top-5 сортируется как выдача: `(final_score, score)` по убыванию; при полном равенстве сохраняется порядок fixtures (claimed первым). Все вакансии имеют одинаковую структуру, поэтому пары не являются независимыми рыночными наблюдениями.",
-        "Precision@5=1.000 в этом наборе не означает безошибочный подбор: top-5 не включает более слабые verified профили, которые проигрывают отдельные adversarial пары. Парные ошибки приведены отдельно и не исчезают из-за высокого агрегата.",
+        "Top-5 сортируется тем же ключом, что и выдача: `(proof_tier, final_score, score)` по убыванию. Все вакансии имеют одинаковую структуру, поэтому пары не являются независимыми рыночными наблюдениями.",
+        "Precision@5=1.000 здесь — структурное свойство набора (в каждой вакансии ровно два релевантных профиля, а слотов пять), а не доказательство качества подбора на рынке. Значимо другое: hard gate по тиру не даёт claimed-профилю обойти verified ни в одной из 84 пар.",
         "",
         "## Результат каждого типа пары",
         "| Тип | Lexical claimed / verified final score | Semantic mock claimed / verified final score |",
@@ -285,8 +287,8 @@ def render_report(results: dict) -> str:
         lines.append(f"| {left['case_type']} | {left['claimed_final']:.2f} / {left['verified_final']:.2f} | {right['claimed_final']:.2f} / {right['verified_final']:.2f} |")
     lines.extend([
         "",
-        f"В lexical режиме идеальный claimed стек получает relevance=1 в {lexical['perfect_claimed_stack_count']}/{lexical['pairs']} пар, даже при провале/отсутствии теста. Порядок определяется backend score, но это не hard gate практического допуска.",
-        "В сценарии unverified_keyword_stuffing полностью заполненный профиль без завершённого теста или reference audit получает score=20, проверенный профиль с тем же стеком получает score=100. Untested профиль больше не равен проверенному. Остальные ошибки ранжирования при неполном стеке и высоком дополнительном сигнале остаются. Misleading semantic mock намеренно проверяет неверное сходство текста: similarity не является подтверждением навыка.",
+        f"Идеальный claimed стек получает relevance=1 в {lexical['perfect_claimed_stack_count']}/{lexical['pairs']} пар даже без теста, но этого больше недостаточно: соответствие потребности теперь аддитивная надбавка (до +{RELEVANCE_MAX_BONUS:.0f} баллов), а не множитель, поэтому сильный подтверждённый результат перевешивает самоописанный стек.",
+        "В сценарии unverified_keyword_stuffing: профиль без завершённого теста получает tier=claimed и не может обойти verified с тем же стеком. Сценарии sparse_verified_stack и achievement_dominates, где раньше слабый тест с полным стеком обгонял сильный тест с разреженным стеком, теперь сходятся в пользу verified. Misleading semantic mock по-прежнему проверяет, что textual similarity не является подтверждением навыка.",
         "",
         "## Дополнительные проверки",
         f"- Реальные `vacancy_similarities`/`index_entities`: {embedding['passed']}/{embedding['checks']} проверок (1024-мерные deterministic vectors, cosine={embedding['similarity']}, cache hit, invalidation + unavailable provider); mock embed calls={embedding['embed_calls']}.",

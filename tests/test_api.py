@@ -354,10 +354,11 @@ def test_full_matching_flow(client):
     assert "full_name" not in card
     assert "contacts" not in card
     assert card["has_pvn_history"] is False
-    assert card["score"] == 20.0
-    assert set(card["score_breakdown"].keys()) == {"profile_completeness", "test_score"}
-    assert card["score_breakdown"]["profile_completeness"]["weight"] == 0.2
-    assert card["score_breakdown"]["test_score"]["value"] == 0.0
+    assert card["score"] == 100.0
+    assert set(card["score_breakdown"].keys()) == {"profile_completeness"}
+    assert card["score_breakdown"]["profile_completeness"]["weight"] == 1.0
+    assert card["proof_tier"] == "claimed"
+    assert card["is_verified"] is False
 
     invitation = client.post(
         "/invitations",
@@ -442,7 +443,9 @@ def test_cards_filters_and_match_relevance(client):
     assert cards.status_code == 200
     card = cards.json()[0]
     assert card["match_relevance"] == 0.5
-    assert card["final_score"] == round(card["score"] * 0.5, 2)
+    from backend.core.scoring import final_score as _final_score
+
+    assert card["final_score"] == round(_final_score(card["score"], 0.5), 2)
     assert card["has_pvn_history"] is False
 
     db = SessionLocal()
