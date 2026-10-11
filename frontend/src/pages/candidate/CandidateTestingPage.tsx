@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { ApiError } from '../../api/client'
-import { fetchTestSession, fetchTestSessions, startTestSession, submitAnswers } from '../../api/testing'
-import type { AnswerPayload, TestSession, TestSessionResult } from '../../api/testing'
+import { fetchTestSession, fetchTestSessionReview, fetchTestSessions, startTestSession, submitAnswers } from '../../api/testing'
+import type { AnswerPayload, TestSession, TestSessionResult, TestSessionReview } from '../../api/testing'
 import { TaskStatement } from '../../components/TaskStatement'
 import { ImageAnnotation } from '../../components/ImageAnnotation'
 import type { AnnotationRect } from '../../components/ImageAnnotation'
@@ -16,7 +16,8 @@ const TASKS_PER_SESSION = 20
 const TEST_RULES = [
   'Одна попытка на каждую сессию тестирования — вернуться к уже начатому тесту можно, но начать заново нельзя.',
   'На всё тестирование отводится ограниченное время; по истечении таймера ответы отправляются автоматически.',
-  'Тест проходит в полноэкранном режиме: выход из него автоматически завершает тест, отвеченные вопросы зачтутся, остальные — как неверные.',
+  'Тест проходит в полноэкранном режиме: вопросы и ответы скрыты, пока режим не включён.',
+  'Выход из полноэкранного режима, переход в другую вкладку или приложение автоматически завершают тест: отвеченные вопросы зачтутся, остальные — как неверные.',
   'Грейд подтверждается только при наборе порога баллов для выбранного грейда.',
   'Подтверждённый грейд действует 12 месяцев, затем требуется пересдача.']
 
@@ -94,6 +95,8 @@ export function CandidateTestingPage() {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [rulesGrade, setRulesGrade] = useState<string | null>(null)
   const [rulesAccepted, setRulesAccepted] = useState(false)
+  const [review, setReview] = useState<TestSessionReview | null>(null)
+  const [reviewLoading, setReviewLoading] = useState(false)
   const submittingRef = useRef(false)
 
   useEffect(() => {
@@ -131,6 +134,19 @@ export function CandidateTestingPage() {
     setError(null)
     setScreen('quiz')
     void document.documentElement.requestFullscreen?.().catch(() => undefined)
+  }
+
+  const openReview = async (sessionId: number) => {
+    setReviewLoading(true)
+    setError(null)
+    try {
+      setReview(await fetchTestSessionReview(sessionId))
+    } catch (exception) {
+      if (exception instanceof ApiError) setError(exception.detail)
+      else setError('Не удалось загрузить разбор сессии')
+    } finally {
+      setReviewLoading(false)
+    }
   }
 
   const resume = async (target: TestSession) => {
@@ -250,13 +266,23 @@ export function CandidateTestingPage() {
       setIsFullscreen(active)
       if (!active && !submittingRef.current) void submitSession(true)
     }
+    const onVisibility = () => {
+      if (document.hidden && !submittingRef.current) void submitSession(true)
+    }
+    const onBlur = () => {
+      if (!submittingRef.current) void submitSession(true)
+    }
     document.addEventListener('fullscreenchange', onFullscreenChange)
+    document.addEventListener('visibilitychange', onVisibility)
+    window.addEventListener('blur', onBlur)
     return () => {
       document.removeEventListener('copy', onCopy)
       document.removeEventListener('cut', onCopy)
       document.removeEventListener('paste', onCopy)
       document.removeEventListener('contextmenu', prevent)
       document.removeEventListener('fullscreenchange', onFullscreenChange)
+      document.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener('blur', onBlur)
     }
   }, [screen, submitSession])
 
@@ -395,6 +421,11 @@ export function CandidateTestingPage() {
                           <span className="font-mono text-[15px] font-bold text-pvn-blue">{item.result_score} / 100</span>
                         ) : null}
                         <span className={`stat-pill ${statusConfig.pill}`}>{statusConfig.label}</span>
+                        {item.status === 'completed' ? (
+                          <button className="btn-ghost py-1.5 text-[13px]" disabled={reviewLoading} onClick={() => void openReview(item.id)} type="button">
+                            Посмотреть
+                          </button>
+                        ) : null}
                       </div>
                     </div>
                   )
@@ -433,17 +464,19 @@ export function CandidateTestingPage() {
           </div>
 
           {!isFullscreen ? (
-            <button
-              className="flex items-center justify-center gap-2 rounded-panel bg-warn/10 px-4 py-3 font-sans text-caption text-warn-ink shadow-raised-sm"
-              onClick={enterFullscreen}
-              type="button"
-            >
-              <span className="material-symbols-outlined text-[18px]">fullscreen</span>
-              Вернитесь в полноэкранный режим. При выходе тест завершается автоматически.
-            </button>
-          ) : null}
-
-          <div className="flex flex-col gap-6 rounded-panel bg-raised p-6 shadow-raised sm:p-8">
+            <section className="flex flex-col items-center gap-4 rounded-panel bg-raised p-12 text-center shadow-raised">
+              <span className="material-symbols-outlined text-[44px] text-pvn-blue">fullscreen</span>
+              <span className="font-mono text-h2 font-bold text-ink">Перейдите в полноэкранный режим</span>
+              <span className="max-w-md font-sans text-caption text-ink-secondary">
+                Вопросы и ответы скрыты до перехода в полноэкранный режим. Выход из полноэкрана, переход в другую вкладку или приложение автоматически завершают тест.
+              </span>
+              <button className="btn-primary" onClick={enterFullscreen} type="button">
+                <span className="material-symbols-outlined text-[18px]">fullscreen</span>
+                Перейти в полноэкранный режим
+              </button>
+            </section>
+          ) : (
+            <div className="flex flex-col gap-6 rounded-panel bg-raised p-6 shadow-raised sm:p-8">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-ink/10 pb-4">
               <div className="flex items-center gap-2">
                 <span className="font-mono text-[12px] text-ink-muted">ВОПРОС {taskIndex + 1}</span>
@@ -536,7 +569,7 @@ export function CandidateTestingPage() {
               </div>
             </div>
           </div>
-
+          )}
           <span className="font-mono text-[12px] text-ink-muted">Ответ сохранится автоматически · без таймера</span>
         </div>
       ) : null}
@@ -692,6 +725,76 @@ export function CandidateTestingPage() {
           </div>
         </section>
       ) : null}
+
+      <Modal
+        labelledBy="session-review-title"
+        onClose={() => setReview(null)}
+        open={review !== null}
+        panelClassName="relative flex w-full max-w-3xl flex-col max-h-[calc(100dvh-2rem)] overflow-hidden rounded-panel bg-raised shadow-raised-lg"
+      >
+        <div className="flex flex-col gap-1 border-b border-ink/10 px-6 py-5">
+          <h2 className="font-mono text-h3 font-extrabold text-ink" id="session-review-title">
+            Разбор теста
+          </h2>
+          {review !== null ? (
+            <p className="font-sans text-caption text-ink-secondary">
+              Грейд {gradeLabel(review.grade)} · {review.correct_count} из {review.task_count} верно · {review.result_score ?? 0} / 100
+            </p>
+          ) : null}
+        </div>
+        <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-6 py-5">
+          {review !== null
+            ? review.review.map((item, index) => (
+                <div className="flex flex-col gap-3 rounded-2xl bg-inset p-4 shadow-inset-sm" key={item.task_id}>
+                  <div className="flex items-center gap-3">
+                    <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full font-mono text-[12px] font-bold text-white ${item.is_correct ? 'bg-good' : 'bg-pvn-red'}`}>
+                      {item.is_correct ? '✓' : '×'}
+                    </span>
+                    <span className="font-mono text-[12px] font-bold uppercase tracking-wider text-ink-secondary">Вопрос {index + 1}</span>
+                  </div>
+                  <TaskStatement statement={item.statement} />
+                  {item.task_format === 'design_annotation' && item.image_data_url ? (
+                    <div className="flex flex-col gap-3">
+                      <img alt="Макет задания" className="w-full max-w-sm rounded-xl shadow-raised-sm" src={item.image_data_url} />
+                      {item.answer_text ? (
+                        <span className="font-sans text-[13px] text-ink">
+                          <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-ink-secondary">Ваше пояснение: </span>
+                          {item.answer_text}
+                        </span>
+                      ) : null}
+                      {item.feedback ? (
+                        <span className="rounded-xl bg-raised px-3 py-2 font-sans text-[13px] text-ink-secondary shadow-raised-sm">{item.feedback}</span>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-1.5">
+                      {item.options.map((option, optionIndex) => {
+                        const isCorrectOption = item.reference_answer === optionIndex
+                        const isSelectedOption = item.selected_index === optionIndex
+                        return (
+                          <div
+                            className={`flex items-start gap-2 rounded-xl px-3 py-2 font-sans text-[13px] ${
+                              isCorrectOption ? 'bg-good/10 text-ink ring-1 ring-good/30' : isSelectedOption ? 'bg-pvn-red/10 text-ink ring-1 ring-pvn-red/30' : 'text-ink-secondary'
+                            }`}
+                            key={optionIndex}
+                          >
+                            <span className="font-mono font-bold text-pvn-blue">{OPTION_LETTERS[optionIndex] ?? optionIndex + 1}.</span>
+                            <span>{option}</span>
+                            {isCorrectOption ? <span className="ml-auto shrink-0 font-mono text-[11px] font-bold uppercase text-good-ink">верно</span> : null}
+                            {isSelectedOption && !isCorrectOption ? <span className="ml-auto shrink-0 font-mono text-[11px] font-bold uppercase text-pvn-red-ink">ваш ответ</span> : null}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              ))
+            : null}
+        </div>
+        <div className="sticky bottom-0 border-t border-ink/10 bg-raised px-6 py-4">
+          <button className="btn-ghost" onClick={() => setReview(null)} type="button">Закрыть</button>
+        </div>
+      </Modal>
 
       <Modal
         labelledBy="test-rules-title"

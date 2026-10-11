@@ -92,3 +92,19 @@ export interface TestSessionResult {
 export function submitAnswers(id: number, answers: AnswerPayload[]): Promise<TestSessionResult> {
   return post(`/test-sessions/${id}/answers`, answers)
 }
+
+export interface TestSessionReview {
+  id: number
+  grade: string
+  status: string
+  task_count: number
+  correct_count: number
+  result_score: number | null
+  verdict: string | null
+  completed_at: string | null
+  review: AnswerReview[]
+}
+
+export function fetchTestSessionReview(id: number): Promise<TestSessionReview> {
+  return get<TestSessionReview>(`/test-sessions/${id}/review`)
+}

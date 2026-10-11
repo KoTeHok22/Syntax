@@ -59,3 +59,17 @@ class TestSession(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class TestAnswer(Base):
+    __tablename__ = "test_answers"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    session_id: Mapped[int] = mapped_column(ForeignKey("test_sessions.id"), index=True)
+    task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id"), index=True)
+    option_index: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    answer_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    annotation: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    is_correct: Mapped[bool] = mapped_column(default=False)
+    feedback: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

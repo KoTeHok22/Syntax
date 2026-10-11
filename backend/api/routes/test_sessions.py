@@ -18,7 +18,7 @@ from backend.core.testing import (
     result_score,
     suggested_grade,
 )
-from backend.models import CandidateProfile, Concept, Task, TaskContext, TestSession
+from backend.models import CandidateProfile, Concept, Task, TaskContext, TestAnswer, TestSession
 from backend.schemas.testing import (
     AnswerReview,
     AnswerSubmit,
@@ -26,6 +26,7 @@ from backend.schemas.testing import (
     TestSessionCreate,
     TestSessionResponse,
     TestSessionResultResponse,
+    TestSessionReviewResponse,
     TestSessionSummary,
 )
 from backend.services.task_generation import check_answer, fallback_task, llm_task
@@ -301,6 +302,52 @@ def get_test_session(
     return session_response(db, session)
 
 
+@router.get("/test-sessions/{session_id}/review", response_model=TestSessionReviewResponse)
+def get_test_session_review(
+    session_id: int,
+    db: Session = Depends(get_db),
+    candidate_profile: CandidateProfile = Depends(get_candidate_profile),
+):
+    session = db.get(TestSession, session_id)
+    if session is None or session.candidate_profile_id != candidate_profile.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Сессия не найдена")
+    if session.status != SESSION_STATUS_COMPLETED:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Сессия ещё не завершена")
+    tasks = {task.id: task for task in db.query(Task).filter(Task.session_id == session.id).all()}
+    answers = {
+        answer.task_id: answer
+        for answer in db.query(TestAnswer).filter(TestAnswer.session_id == session.id).all()
+    }
+    review = []
+    for task in sorted(tasks.values(), key=lambda item: item.id):
+        answer = answers.get(task.id)
+        review.append(
+            AnswerReview(
+                task_id=task.id,
+                statement=task.statement,
+                options=task.options,
+                selected_index=answer.option_index if answer else None,
+                reference_answer=task.reference_answer if isinstance(task.reference_answer, int) else None,
+                is_correct=bool(answer.is_correct) if answer else False,
+                task_format=task.task_format,
+                answer_text=answer.answer_text if answer else None,
+                feedback=answer.feedback if answer else None,
+                image_data_url=task.image_data_url if task.task_format == DESIGN_ANNOTATION_FORMAT else None,
+            )
+        )
+    return TestSessionReviewResponse(
+        id=session.id,
+        grade=session.grade,
+        status=session.status,
+        task_count=session.task_count,
+        correct_count=session.correct_count,
+        result_score=session.result_score,
+        verdict=session.verdict,
+        completed_at=session.completed_at,
+        review=review,
+    )
+
+
 @router.post("/test-sessions/{session_id}/answers")
 async def submit_answers(
     session_id: int,
@@ -369,6 +416,19 @@ async def submit_answers(
     session.verdict = adaptive_verdict(correct, session.task_count, session.grade)
     session.status = SESSION_STATUS_COMPLETED
     session.completed_at = datetime.now(timezone.utc)
+    for submission in submissions:
+        raw_annotation = submission.annotation.model_dump() if submission.annotation is not None else None
+        db.add(
+            TestAnswer(
+                session_id=session.id,
+                task_id=submission.task_id,
+                option_index=submission.option_index,
+                answer_text=submission.answer,
+                annotation=normalize_annotation(raw_annotation),
+                is_correct=is_correct(submission),
+                feedback=annotation_feedback.get(submission.task_id, (False, ""))[1] or None,
+            )
+        )
     grade_applied = apply_test_grade(db, candidate_profile, session)
     open_answers = [submission.answer for submission in submissions
                     if submission.answer and not tasks[submission.task_id].options

@@ -858,6 +858,50 @@ def test_test_session_with_concept_bank(client):
     db.close()
 
 
+def test_completed_session_review_is_available(client):
+    from backend.db import SessionLocal
+    from backend.models import Task
+
+    db = SessionLocal()
+    seed_concept_bank(db)
+
+    candidate_token = register_and_login(client, "cand-review@example.com", "candidate")
+    session = client.post("/test-sessions", json={"grade": "junior"}, headers=auth(candidate_token)).json()
+    db_tasks = db.query(Task).filter(Task.session_id == session["id"]).all()
+    submissions = [{"task_id": task.id, "option_index": task.reference_answer} for task in db_tasks]
+    submitted = client.post(
+        f"/test-sessions/{session['id']}/answers",
+        json=submissions,
+        headers=auth(candidate_token),
+    )
+    assert submitted.status_code == 200
+
+    review = client.get(f"/test-sessions/{session['id']}/review", headers=auth(candidate_token))
+    assert review.status_code == 200
+    body = review.json()
+    assert body["result_score"] == 100
+    assert len(body["review"]) == len(db_tasks)
+    assert all(item["is_correct"] for item in body["review"])
+    assert all(item["selected_index"] == item["reference_answer"] for item in body["review"])
+    first = body["review"][0]
+    db_task = db.get(Task, first["task_id"])
+    assert first["selected_index"] == db_task.reference_answer
+    db.close()
+
+
+def test_review_unavailable_for_pending_session(client):
+    from backend.db import SessionLocal
+
+    db = SessionLocal()
+    seed_concept_bank(db)
+
+    candidate_token = register_and_login(client, "cand-review-pending@example.com", "candidate")
+    session = client.post("/test-sessions", json={"grade": "junior"}, headers=auth(candidate_token)).json()
+    review = client.get(f"/test-sessions/{session['id']}/review", headers=auth(candidate_token))
+    assert review.status_code == 409
+    db.close()
+
+
 def test_test_session_unique_formulations(client):
     from backend.db import SessionLocal
 

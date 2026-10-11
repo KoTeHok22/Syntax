@@ -89,3 +89,15 @@ class TestSessionResultResponse(BaseModel):
     suggested_grade: str | None
     grade_applied: bool = False
     review: list[AnswerReview]
+
+
+class TestSessionReviewResponse(BaseModel):
+    id: int
+    grade: str
+    status: str
+    task_count: int
+    correct_count: int
+    result_score: int | None
+    verdict: str | None
+    completed_at: datetime | None = None
+    review: list[AnswerReview]

@@ -506,7 +506,7 @@ export function CandidateProfilePage() {
               </form>
             ) : (
               <div className="flex flex-col gap-5">
-                <span className="label-cap">Подтверждённые навыки</span>
+                <span className="label-cap">Навыки и стек</span>
                 <div className="flex flex-wrap gap-2">
                   {profile.stack.length === 0 ? (
                     <span className="font-sans text-caption text-ink-secondary">Стек не указан</span>
@@ -514,6 +514,9 @@ export function CandidateProfilePage() {
                     profile.stack.map((item) => (<span className="chip-blue" key={item}>{item}</span>))
                   )}
                 </div>
+                {profile.stack.length > 0 ? (
+                  <span className="font-sans text-caption text-ink-secondary">Заявлено кандидатом. Подтверждается результатами тестирования.</span>
+                ) : null}
                 <div className="grid grid-cols-1 gap-x-8 gap-y-2 md:grid-cols-2">
                   <div className="flex items-center justify-between gap-3 border-b border-ink/10 py-2.5">
                     <span className="label-cap">Опыт</span>

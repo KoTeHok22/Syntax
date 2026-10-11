@@ -13,6 +13,7 @@ from backend.models import (
     RegularTask,
     RegularTaskSubmission,
     Task,
+    TestAnswer,
     TestSession,
     User,
     Vacancy,
@@ -25,6 +26,7 @@ def _delete_candidate(db, candidate_id: int) -> None:
     db.query(Invitation).filter(Invitation.candidate_profile_id == candidate_id).delete(synchronize_session=False)
     db.query(RegularTaskSubmission).filter(RegularTaskSubmission.candidate_profile_id == candidate_id).delete(synchronize_session=False)
     session_ids = db.query(TestSession.id).filter(TestSession.candidate_profile_id == candidate_id)
+    db.query(TestAnswer).filter(TestAnswer.session_id.in_(session_ids)).delete(synchronize_session=False)
     db.query(Task).filter(or_(Task.candidate_profile_id == candidate_id, Task.session_id.in_(session_ids))).delete(synchronize_session=False)
     db.query(TestSession).filter(TestSession.candidate_profile_id == candidate_id).delete(synchronize_session=False)
 
