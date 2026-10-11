@@ -7,13 +7,15 @@ from backend.core.testing import (
     adaptive_verdict,
     grade_change_allowed,
     grade_confirmation_active,
+    pass_correct_count,
     pass_threshold,
     result_score,
+    suggest_higher_correct_count,
     suggested_grade,
 )
 
 
-def test_adaptive_verdict_boundaries():
+def test_adaptive_verdict_boundaries_for_five_tasks():
     assert adaptive_verdict(5, 5, "junior") == VERDICT_SUGGEST_HIGHER
     assert adaptive_verdict(4, 5, "junior") == VERDICT_CONFIRMED
     assert adaptive_verdict(3, 5, "junior") == VERDICT_CONFIRMED
@@ -22,6 +24,29 @@ def test_adaptive_verdict_boundaries():
     assert adaptive_verdict(4, 5, "middle") == VERDICT_CONFIRMED
     assert adaptive_verdict(3, 5, "middle") == VERDICT_SUGGEST_LOWER
     assert adaptive_verdict(4, 5, "senior") == VERDICT_SUGGEST_LOWER
+
+
+def test_adaptive_verdict_boundaries_for_twenty_tasks():
+    assert adaptive_verdict(20, 20, "junior") == VERDICT_SUGGEST_HIGHER
+    assert adaptive_verdict(19, 20, "junior") == VERDICT_SUGGEST_HIGHER
+    assert adaptive_verdict(18, 20, "junior") == VERDICT_CONFIRMED
+    assert adaptive_verdict(12, 20, "junior") == VERDICT_CONFIRMED
+    assert adaptive_verdict(11, 20, "junior") == VERDICT_SUGGEST_LOWER
+    assert adaptive_verdict(14, 20, "middle") == VERDICT_SUGGEST_LOWER
+    assert adaptive_verdict(15, 20, "middle") == VERDICT_CONFIRMED
+    assert adaptive_verdict(16, 20, "senior") == VERDICT_SUGGEST_LOWER
+    assert adaptive_verdict(17, 20, "senior") == VERDICT_CONFIRMED
+
+
+def test_verdict_is_proportional_to_session_length():
+    assert suggest_higher_correct_count(20) == 19
+    assert pass_correct_count("junior", 20) == 12
+    assert pass_correct_count("middle", 20) == 15
+    assert pass_correct_count("senior", 20) == 17
+    assert suggest_higher_correct_count(5) == 5
+    assert pass_correct_count("junior", 5) == 3
+    assert pass_correct_count("middle", 5) == 4
+    assert pass_correct_count("senior", 5) == 5
 
 
 def test_pass_threshold_per_grade():
@@ -49,6 +74,7 @@ def test_suggested_grade_never_forces_downgrade():
 
 def test_result_score_normalization():
     assert result_score(4, 5) == 80
+    assert result_score(19, 20) == 95
     assert result_score(0, 0) == 0
 
 

@@ -8,11 +8,35 @@ GRADE_ORDER = {"junior": 0, "middle": 1, "senior": 2}
 GRADE_NEXT = {"junior": "middle", "middle": "senior"}
 GRADE_PREVIOUS = {"middle": "junior", "senior": "middle"}
 
+GRADE_PASS_RATIO = {"junior": 0.60, "middle": 0.75, "senior": 0.85}
+GRADE_SUGGEST_HIGHER_RATIO = 0.95
+DEFAULT_PASS_RATIO = 0.80
+
 GRADE_PASS_THRESHOLD = {"junior": 60, "middle": 75, "senior": 85}
 GRADE_CONFIRMATION_VALID_MONTHS = 12
 
 SESSION_STATUS_PENDING = "pending"
 SESSION_STATUS_COMPLETED = "completed"
+
+
+def pass_ratio(grade: str | None) -> float:
+    if grade is None:
+        return DEFAULT_PASS_RATIO
+    return GRADE_PASS_RATIO.get(grade, GRADE_PASS_RATIO["junior"])
+
+
+def pass_correct_count(grade: str | None, task_count: int) -> int:
+    return ceil_ratio(pass_ratio(grade), task_count)
+
+
+def suggest_higher_correct_count(task_count: int) -> int:
+    return ceil_ratio(GRADE_SUGGEST_HIGHER_RATIO, task_count)
+
+
+def ceil_ratio(ratio: float, task_count: int) -> int:
+    if task_count <= 0:
+        return 0
+    return min(task_count, -int(-ratio * task_count // 1))
 
 
 def pass_threshold(grade: str) -> int:
@@ -22,11 +46,9 @@ def pass_threshold(grade: str) -> int:
 def adaptive_verdict(correct_count: int, task_count: int, grade: str | None = None) -> str:
     if task_count == 0:
         return VERDICT_SUGGEST_LOWER
-    score = result_score(correct_count, task_count)
-    threshold = pass_threshold(grade) if grade is not None else 80
-    if score >= 95:
+    if correct_count >= suggest_higher_correct_count(task_count):
         return VERDICT_SUGGEST_HIGHER
-    if score >= threshold:
+    if correct_count >= pass_correct_count(grade, task_count):
         return VERDICT_CONFIRMED
     return VERDICT_SUGGEST_LOWER
 
