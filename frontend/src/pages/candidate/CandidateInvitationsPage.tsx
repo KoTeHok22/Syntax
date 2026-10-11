@@ -190,7 +190,7 @@ export function CandidateInvitationsPage() {
                 const isPending = invitation.status === 'sent' || invitation.status === 'viewed'
                 return (
                   <div className="flex flex-col gap-4 rounded-panel bg-raised p-6 shadow-raised" key={invitation.id}>
-                    <div className="flex flex-wrap items-start gap-x-4 gap-y-3 sm:flex-nowrap">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:gap-x-4">
                       <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-pvn-blue/10">
                         <span className="material-symbols-outlined text-[24px] text-pvn-blue">business</span>
                       </span>
@@ -206,8 +206,8 @@ export function CandidateInvitationsPage() {
                           <p className="font-sans text-caption leading-relaxed text-ink-secondary break-words line-clamp-3">{invitation.message}</p>
                         ) : null}
                       </div>
-                      <div className="flex shrink-0 flex-col items-end self-start">
-                        <span className="font-mono text-[18px] font-extrabold text-pvn-blue">{formatSalary(invitation.salary_from, invitation.salary_to)}</span>
+                      <div className="flex shrink-0 flex-col items-start sm:items-end sm:self-start">
+                        <span className="whitespace-nowrap font-mono text-[18px] font-extrabold text-pvn-blue">{formatSalary(invitation.salary_from, invitation.salary_to)}</span>
                       </div>
                     </div>
 
