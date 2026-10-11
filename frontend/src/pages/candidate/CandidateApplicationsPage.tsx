@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { fetchMyApplications } from '../../api/platform'
 import type { Application } from '../../api/platform'
 import { statusPill } from '../../lib/statusPill'
@@ -91,6 +92,15 @@ export function CandidateApplicationsPage() {
                     <span className="material-symbols-outlined text-[13px]">{statusConfig.icon}</span>
                     {statusConfig.label}
                   </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <Link
+                    className="btn-ghost w-fit py-2 text-[13px]"
+                    to={`/candidate/regular-tasks?vacancy=${application.vacancy_id}`}
+                  >
+                    <span className="material-symbols-outlined text-[18px]">quiz</span>
+                    Пройти задания
+                  </Link>
                 </div>
                 {application.interview_at ? (
                   <div className="flex flex-col gap-2 rounded-xl bg-good/10 p-4">

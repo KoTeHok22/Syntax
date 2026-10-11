@@ -163,10 +163,22 @@ export function CandidateInvitationsPage() {
             </div>
           ) : visibleInvitations.length === 0 ? (
             <div className="flex flex-col items-center gap-3 rounded-panel bg-raised p-12 text-center text-ink-secondary shadow-raised">
-              <span className="material-symbols-outlined text-[48px] text-ink-muted">mark_email_unread</span>
-              <span className="font-mono text-h2 font-semibold text-ink">Приглашений пока нет</span>
+              <span className="material-symbols-outlined text-[48px] text-ink-muted">
+                {invitations.length === 0 ? 'mark_email_unread' : 'inbox'}
+              </span>
+              <span className="font-mono text-h2 font-semibold text-ink">
+                {invitations.length === 0
+                  ? 'Приглашений пока нет'
+                  : tab === 'new'
+                    ? 'Новых приглашений нет'
+                    : 'В архиве пусто'}
+              </span>
               <span className="max-w-md font-sans text-body">
-                Подтвердите грейд и заполните профиль — работодатели найдут вас по анонимной карточке.
+                {invitations.length === 0
+                  ? 'Подтвердите грейд и заполните профиль — работодатели найдут вас по анонимной карточке.'
+                  : tab === 'new'
+                    ? 'Все приглашения уже обработаны. Новые появятся здесь.'
+                    : 'Принятые и отклонённые приглашения окажутся в архиве.'}
               </span>
             </div>
           ) : (
@@ -178,23 +190,23 @@ export function CandidateInvitationsPage() {
                 const isPending = invitation.status === 'sent' || invitation.status === 'viewed'
                 return (
                   <div className="flex flex-col gap-4 rounded-panel bg-raised p-6 shadow-raised" key={invitation.id}>
-                    <div className="flex items-start gap-4">
+                    <div className="flex flex-wrap items-start gap-x-4 gap-y-3 sm:flex-nowrap">
                       <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-pvn-blue/10">
                         <span className="material-symbols-outlined text-[24px] text-pvn-blue">business</span>
                       </span>
-                      <div className="min-w-0 flex-1">
+                      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                         <div className="flex flex-wrap items-center gap-2">
-                          <h2 className="font-sans text-[17px] font-bold text-ink">{invitation.company_name ?? 'Компания скрыта'}</h2>
+                          <h2 className="min-w-0 font-sans text-[17px] font-bold text-ink">{invitation.company_name ?? 'Компания скрыта'}</h2>
                           <span className={`stat-pill ${statusConfig.pill}`}>
                             <span className="material-symbols-outlined text-[13px]">{statusConfig.icon}</span>
                             {statusConfig.label}
                           </span>
                         </div>
                         {invitation.message !== null ? (
-                          <p className="mt-1.5 font-sans text-caption leading-relaxed text-ink-secondary line-clamp-2">{invitation.message}</p>
+                          <p className="font-sans text-caption leading-relaxed text-ink-secondary break-words line-clamp-3">{invitation.message}</p>
                         ) : null}
                       </div>
-                      <div className="flex shrink-0 flex-col items-end">
+                      <div className="flex shrink-0 flex-col items-end self-start">
                         <span className="font-mono text-[18px] font-extrabold text-pvn-blue">{formatSalary(invitation.salary_from, invitation.salary_to)}</span>
                       </div>
                     </div>
