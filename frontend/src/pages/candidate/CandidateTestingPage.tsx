@@ -11,10 +11,9 @@ import { gradeLabel } from '../../lib/format'
 
 const OPTION_LETTERS = ['А', 'Б', 'В', 'Г', 'Д', 'Е', 'Ж', 'З']
 
-const TASKS_PER_SESSION = 20
-
 const TEST_RULES = [
   'Одна попытка на каждую сессию тестирования — вернуться к уже начатому тесту можно, но начать заново нельзя.',
+  'Число вопросов фиксируется в момент старта и одинаково для всех, кто сдаёт тест на один грейд.',
   'На всё тестирование отводится ограниченное время; по истечении таймера ответы отправляются автоматически.',
   'Тест проходит в полноэкранном режиме: вопросы и ответы скрыты, пока режим не включён.',
   'Выход из полноэкранного режима, переход в другую вкладку или приложение автоматически завершают тест: отвеченные вопросы зачтутся, остальные — как неверные.',
@@ -62,6 +61,15 @@ function sessionStatus(status: TestSession['status']): { label: string; pill: st
 function verdictInfo(verdict: string | undefined): { label: string; pill: string } {
   if (verdict === undefined) return { label: 'Грейд подтверждён', pill: 'bg-good/15 text-good-ink' }
   return verdictConfig[verdict] ?? { label: verdict, pill: 'bg-sunken text-ink-secondary' }
+}
+
+function questionsLabel(count: number): string {
+  const mod100 = count % 100
+  const mod10 = count % 10
+  if (mod100 >= 11 && mod100 <= 14) return 'вопросов'
+  if (mod10 === 1) return 'вопрос'
+  if (mod10 >= 2 && mod10 <= 4) return 'вопроса'
+  return 'вопросов'
 }
 
 function gradePassThreshold(grade: string): number {
@@ -343,7 +351,7 @@ export function CandidateTestingPage() {
                 </span>
                 <div className="flex flex-col">
                   <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-ink">Незавершённая сессия</span>
-                  <span className="font-sans text-caption text-ink-secondary">Тест на грейд {resumable.grade} · {resumable.task_count} вопросов · прогресс сохранён</span>
+                  <span className="font-sans text-caption text-ink-secondary">Тест на грейд {resumable.grade} · {resumable.task_count} {questionsLabel(resumable.task_count)} · прогресс сохранён</span>
                 </div>
               </div>
               <button className="btn-primary shrink-0" disabled={isBusy} onClick={() => void resume(resumable)} type="button">
@@ -414,7 +422,7 @@ export function CandidateTestingPage() {
                     <div className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0" key={item.id}>
                       <div className="flex flex-col">
                         <span className="font-mono text-[13px] font-semibold uppercase tracking-wider text-ink">{item.grade}</span>
-                        <span className="font-sans text-caption text-ink-secondary">{item.task_count} вопросов</span>
+                        <span className="font-sans text-caption text-ink-secondary">{item.task_count} {questionsLabel(item.task_count)}</span>
                       </div>
                       <div className="flex items-center gap-4">
                         {typeof item.result_score === 'number' ? (
@@ -816,7 +824,7 @@ export function CandidateTestingPage() {
             Правила сдачи теста
           </h2>
           <p className="font-sans text-caption text-ink-secondary">
-            Грейд {rulesGrade !== null ? gradeLabel(rulesGrade) : ''} · {TASKS_PER_SESSION} вопросов
+            Грейд {rulesGrade !== null ? gradeLabel(rulesGrade) : ''} · точное число вопросов появится после старта теста
           </p>
         </div>
         <div className="flex-1 overflow-y-auto px-6 py-5">

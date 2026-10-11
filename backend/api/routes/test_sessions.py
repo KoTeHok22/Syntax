@@ -187,28 +187,34 @@ async def start_test_session(
             annotation_query = annotation_query.filter(Concept.domain.in_(concept_domains))
         annotation_concept = annotation_query.order_by(Concept.id).first()
     reserve_annotation = annotation_concept is not None and target_count > 1
-    pool_limit = target_count - 1 if reserve_annotation else target_count
-    pool_query = (
-        db.query(Task)
-        .join(Concept, Task.concept_id == Concept.id)
-        .filter(
-            Task.grade == request.grade,
-            Task.candidate_profile_id.is_(None),
-            Task.session_id.is_(None),
-            Concept.task_format != DESIGN_ANNOTATION_FORMAT,
+    objective_needed = target_count - 1 if reserve_annotation else target_count
+
+    def reusable_pool_tasks(domains: tuple[str, ...]) -> list[Task]:
+        query = (
+            db.query(Task)
+            .join(Concept, Task.concept_id == Concept.id)
+            .filter(
+                Task.grade == request.grade,
+                Task.candidate_profile_id.is_(None),
+                Task.session_id.is_(None),
+                Concept.task_format != DESIGN_ANNOTATION_FORMAT,
+            )
         )
-    )
-    if concept_domains:
-        pool_query = pool_query.filter(Concept.domain.in_(concept_domains))
+        if domains:
+            query = query.filter(Concept.domain.in_(domains))
+        tasks: list[Task] = []
+        for candidate_task in query.order_by(Task.id).all():
+            if candidate_task.concept_id in seen_concept_ids:
+                continue
+            seen_concept_ids.add(candidate_task.concept_id)
+            tasks.append(candidate_task)
+        return tasks
+
     seen_concept_ids: set[int] = set()
-    pool_tasks: list[Task] = []
-    for candidate_task in pool_query.order_by(Task.id).all():
-        if candidate_task.concept_id in seen_concept_ids:
-            continue
-        seen_concept_ids.add(candidate_task.concept_id)
-        pool_tasks.append(candidate_task)
-        if len(pool_tasks) >= pool_limit:
-            break
+    pool_tasks = reusable_pool_tasks(concept_domains)
+    if len(pool_tasks) < objective_needed:
+        pool_tasks = pool_tasks + reusable_pool_tasks(())
+    pool_tasks = pool_tasks[:objective_needed]
     generated = 0
     for pool_task in pool_tasks:
         pool_task.candidate_profile_id = candidate_profile.id
@@ -221,56 +227,57 @@ async def start_test_session(
         if annotation_task is not None:
             db.add(annotation_task)
             generated += 1
-    remaining = target_count - generated
+    remaining = objective_needed - generated
     if remaining > 0:
-        concept_query = db.query(Concept).filter(Concept.grade == request.grade)
-        if concept_domains:
-            concept_query = concept_query.filter(Concept.domain.in_(concept_domains))
-        concepts = concept_query.order_by(Concept.id).all()
-        if not concepts and concept_domains:
-            concepts = (
-                db.query(Concept)
+        annotations = [annotation_concept] if annotation_concept is not None else []
+        ordered_concepts = (
+            db.query(Concept)
+            .filter(Concept.grade == request.grade, Concept.domain.in_(concept_domains))
+            .order_by(Concept.id)
+            .all()
+            if concept_domains
+            else []
+        )
+        if len([concept for concept in ordered_concepts if concept.id not in seen_concept_ids]) < remaining:
+            domain_ids = {concept.id for concept in ordered_concepts}
+            ordered_concepts = ordered_concepts + [
+                concept
+                for concept in db.query(Concept)
                 .filter(Concept.grade == request.grade)
                 .order_by(Concept.id)
                 .all()
+                if concept.id not in domain_ids
+            ]
+        ordered_concepts = annotations + ordered_concepts
+        objective = [
+            concept
+            for concept in ordered_concepts
+            if concept.task_format != DESIGN_ANNOTATION_FORMAT and concept.id not in seen_concept_ids
+        ][:remaining]
+        drafts = await asyncio.gather(
+            *(llm_task(concept, request.grade) for concept in objective)
+        )
+        for concept, draft in zip(objective, drafts):
+            if draft is None:
+                draft = fallback_task(concept, f"{candidate_profile.id}:{session.id}:{generated}", context_labels)
+            if draft is None:
+                continue
+            task = Task(
+                concept_id=concept.id,
+                grade=request.grade,
+                statement=draft.statement,
+                task_format=draft.task_format,
+                options=draft.options,
+                reference_answer=draft.reference_answer,
+                candidate_profile_id=candidate_profile.id,
+                session_id=session.id,
             )
-        if concepts:
-            objective = [
-                concept
-                for concept in concepts
-                if concept.task_format != DESIGN_ANNOTATION_FORMAT and concept.id not in seen_concept_ids
-            ][:remaining]
-            if len(objective) < remaining:
-                fallback_repeats = [
-                    concept
-                    for concept in concepts
-                    if concept.task_format != DESIGN_ANNOTATION_FORMAT and concept.id in seen_concept_ids
-                ]
-                objective = objective + fallback_repeats[: remaining - len(objective)]
-            drafts = await asyncio.gather(
-                *(llm_task(concept, request.grade) for concept in objective)
-            )
-            for concept, draft in zip(objective, drafts):
-                if draft is None:
-                    draft = fallback_task(concept, f"{candidate_profile.id}:{session.id}:{generated}", context_labels)
-                if draft is None:
-                    continue
-                task = Task(
-                    concept_id=concept.id,
-                    grade=request.grade,
-                    statement=draft.statement,
-                    task_format=draft.task_format,
-                    options=draft.options,
-                    reference_answer=draft.reference_answer,
-                    candidate_profile_id=candidate_profile.id,
-                    session_id=session.id,
-                )
-                db.add(task)
-                generated += 1
-    session.task_count = generated
+            db.add(task)
+            generated += 1
     if generated == 0:
         db.rollback()
         raise HTTPException(status_code=409, detail="Не удалось подготовить задания, попробуйте позже")
+    session.task_count = generated
     db.commit()
     db.refresh(session)
     return session_response(db, session)
