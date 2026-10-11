@@ -6,7 +6,7 @@ from pypdf import PdfReader
 from pypdf.errors import PdfReadError
 
 from backend.core.domain_seed import CURATED_DOMAINS
-from backend.core.labels import SPECIALIZATION_LABELS
+from backend.core.labels import SPECIALIZATION_LABELS, SPECIALIZATIONS
 from backend.services.llm import StubLLMClient, get_llm_client
 from backend.services.prompts import get_prompt, render
 
@@ -27,6 +27,80 @@ PROFILE_FIELDS = (
     "soft_skills",
     "specialization",
 )
+
+PLACEHOLDER_DEFAULTS = ("full_name", "specialization")
+
+SPECIALIZATION_SYNONYMS: dict[str, str] = {
+    "backend": "backend",
+    "бэкенд": "backend",
+    "бекенд": "backend",
+    "back end": "backend",
+    "back-end": "backend",
+    "server": "backend",
+    "frontend": "frontend",
+    "фронтенд": "frontend",
+    "front end": "frontend",
+    "front-end": "frontend",
+    "data": "data",
+    "data science": "data",
+    "data scientist": "data",
+    "datascience": "data",
+    "дата саентист": "data",
+    "дата сайнс": "data",
+    "аналитика данных": "data",
+    "данные": "data",
+    "ml": "data",
+    "machine learning": "data",
+    "машинное обучение": "data",
+    "devops": "devops",
+    "девопс": "devops",
+    "dev ops": "devops",
+    "sre": "devops",
+    "infrastructure": "devops",
+    "инфраструктура": "devops",
+    "mobile": "mobile",
+    "мобильная разработка": "mobile",
+    "мобильная": "mobile",
+    "android": "mobile",
+    "ios": "mobile",
+    "qa": "qa",
+    "quality assurance": "qa",
+    "тестирование": "qa",
+    "тестировщик": "qa",
+    "q a": "qa",
+    "дизайн": "design",
+    "designer": "design",
+    "design": "design",
+    "ux/ui": "design",
+    "ux": "design",
+    "ui": "design",
+    "продуктовый дизайнер": "design",
+}
+
+GRADE_SYNONYMS: dict[str, str] = {
+    "junior": "junior",
+    "джун": "junior",
+    "jun": "junior",
+    "младший": "junior",
+    "intern": "junior",
+    "стажер": "junior",
+    "middle": "middle",
+    "мидл": "middle",
+    "mid": "middle",
+    "средний": "middle",
+    "senior": "senior",
+    "сеньор": "senior",
+    "сениор": "senior",
+    "sen": "senior",
+    "старший": "senior",
+    "lead": "senior",
+    "ведущий": "senior",
+}
+
+ENUM_FIELDS: dict[str, tuple[tuple[str, ...], dict[str, str]]] = {
+    "specialization": (SPECIALIZATIONS, SPECIALIZATION_SYNONYMS),
+    "grade": (("junior", "middle", "senior"), GRADE_SYNONYMS),
+}
 
 EMAIL_RE = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
 PHONE_RE = re.compile(
@@ -129,6 +203,38 @@ def parse_llm_fields(raw: str) -> dict:
     except json.JSONDecodeError:
         return {}
     return {key: data[key] for key in PROFILE_FIELDS if data.get(key) not in (None, "", [], {})}
+
+
+def canonical_enum_value(field: str, value) -> str | None:
+    if not isinstance(value, str):
+        return None
+    allowed, synonyms = ENUM_FIELDS[field]
+    normalized = re.sub(r"\s+", " ", value.strip().lower().replace("ё", "е").replace("_", " "))
+    if not normalized:
+        return None
+    if normalized in allowed:
+        return normalized
+    return synonyms.get(normalized)
+
+
+def sanitize_parsed_fields(parsed: dict) -> tuple[dict, dict]:
+    applied: dict = {}
+    skipped: dict = {}
+    for field, value in parsed.items():
+        if field not in PROFILE_FIELDS:
+            continue
+        if field in ENUM_FIELDS:
+            canonical = canonical_enum_value(field, value)
+            if canonical is None:
+                if value not in (None, "", [], {}):
+                    skipped[field] = "не распознано значение"
+                continue
+            applied[field] = canonical
+            continue
+        if value in (None, "", [], {}):
+            continue
+        applied[field] = value
+    return applied, skipped
 
 
 def _extract_email(text: str) -> str | None:
@@ -267,12 +373,15 @@ async def parse_resume(file_bytes: bytes) -> dict:
         return {"invalid_pdf": True}
     client = get_llm_client()
     fallback = parse_text_fields(text)
-    if isinstance(client, StubLLMClient):
-        return {**fallback, "resume_chars": len(text), "resume_text": text[:12000]}
-    try:
-        raw = await client.complete(render(get_prompt("resume_parse", RESUME_PARSE_PROMPT), resume_text=text[:6000]))
-    except Exception:
-        raw = ""
-    if not raw:
-        return {**fallback, "resume_chars": len(text), "resume_text": text[:12000]}
-    return {**fallback, **parse_llm_fields(raw), "resume_text": text[:12000]}
+    raw = ""
+    if not isinstance(client, StubLLMClient):
+        try:
+            raw = await client.complete(render(get_prompt("resume_parse", RESUME_PARSE_PROMPT), resume_text=text[:6000]))
+        except Exception:
+            raw = ""
+    merged = {**fallback, **parse_llm_fields(raw)} if raw else fallback
+    applied, skipped = sanitize_parsed_fields(merged)
+    payload = {**applied, "skipped_fields": skipped, "resume_text": text[:12000]}
+    if isinstance(client, StubLLMClient) or not raw:
+        payload["resume_chars"] = len(text)
+    return payload

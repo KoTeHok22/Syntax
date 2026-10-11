@@ -29,7 +29,7 @@ from backend.schemas.matching import (
     OfficeInput,
     VisibilityUpdate,
 )
-from backend.services.pdf_parser import PROFILE_FIELDS, parse_resume
+from backend.services.pdf_parser import PLACEHOLDER_DEFAULTS, parse_resume, sanitize_parsed_fields
 from backend.services.profile_pdf import build_profile_pdf
 from backend.services.candidate_score import candidate_score
 from backend.services.semantic_matching import index_candidate
@@ -188,16 +188,21 @@ async def upload_resume(
     if parsed.get("invalid_pdf"):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Файл не является корректным PDF или не содержит текста")
     profile.resume_text = parsed.pop("resume_text", None)
+    skipped = parsed.pop("skipped_fields", {})
+    candidates, _ = sanitize_parsed_fields(parsed)
     applied = {}
-    for field, value in parsed.items():
-        if field in PROFILE_FIELDS and value is not None:
-            setattr(profile, field, value)
-            applied[field] = value
+    for field, value in candidates.items():
+        current = getattr(profile, field, None)
+        if field not in PLACEHOLDER_DEFAULTS and current not in (None, "", [], {}, 0, 0.0):
+            skipped[field] = "поле уже заполнено"
+            continue
+        setattr(profile, field, value)
+        applied[field] = value
     if profile.grade and profile.specialization:
         assign_category(db, profile, profile.specialization, profile.grade)
     await index_candidate(profile)
     db.commit()
-    return {"applied": applied}
+    return {"applied": applied, "skipped": skipped}
 
 
 @router.get("/employers/me", response_model=EmployerProfileResponse)
