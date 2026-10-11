@@ -1,18 +1,31 @@
 import json
 import os
-from functools import lru_cache
+import re
 from pathlib import Path
 
 PROMPTS_PATH = Path(os.environ.get("PROMPTS_PATH", Path(__file__).resolve().parent.parent.parent / "prompts.json"))
 
+_cache: dict = {"mtime": None, "data": {}}
 
-@lru_cache(maxsize=1)
-def load_prompts() -> dict:
+
+def _read_file() -> dict:
     try:
         with PROMPTS_PATH.open(encoding="utf-8") as handle:
-            return json.load(handle)
+            data = json.load(handle)
+            return data if isinstance(data, dict) else {}
     except (OSError, json.JSONDecodeError):
         return {}
+
+
+def load_prompts() -> dict:
+    try:
+        mtime = PROMPTS_PATH.stat().st_mtime
+    except OSError:
+        return _cache["data"] if isinstance(_cache["data"], dict) else {}
+    if _cache["mtime"] != mtime:
+        _cache["data"] = _read_file()
+        _cache["mtime"] = mtime
+    return _cache["data"]
 
 
 def get_prompt(key: str, default: str) -> str:
@@ -36,8 +49,6 @@ def get_examples(key: str) -> list:
 
 
 def render(template: str, **values) -> str:
-    import re
-
     def substitute(match: re.Match) -> str:
         key = match.group(1)
         return str(values[key]) if key in values else match.group(0)
@@ -46,4 +57,5 @@ def render(template: str, **values) -> str:
 
 
 def reload_prompts() -> None:
-    load_prompts.cache_clear()
+    _cache["mtime"] = None
+    _cache["data"] = {}

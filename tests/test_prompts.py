@@ -1,4 +1,20 @@
-from backend.services.prompts import get_examples, get_prompt, render
+from backend.services.prompts import load_prompts, get_examples, get_prompt, render
+
+
+def test_all_expected_sections_present():
+    data = load_prompts()
+    for key in (
+        "task_generation",
+        "design_question",
+        "design_mockup",
+        "design_grading",
+        "resume_parse",
+        "query_expansion",
+        "vacancy_moderation",
+    ):
+        assert key in data, key
+        assert isinstance(data[key].get("prompt"), str)
+        assert data[key]["prompt"].strip() != ""
 
 
 def test_prompts_load_from_json():
