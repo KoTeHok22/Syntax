@@ -6,6 +6,7 @@ import {
   submitRegularTaskAnswers,
 } from '../../api/platform'
 import type { RegularTaskSession, RegularTaskSessionResult } from '../../api/platform'
+import { CandidateVacancyPicker } from '../../components/CandidateVacancyPicker'
 import { Modal } from '../../components/Modal'
 import { TaskStatement } from '../../components/TaskStatement'
 
@@ -24,7 +25,9 @@ function SkeletonTask() {
 
 export function CandidateRegularTasksPage() {
   const [searchParams] = useSearchParams()
-  const vacancyId = Number(searchParams.get('vacancy') ?? '')
+  const vacancyParam = searchParams.get('vacancy') ?? ''
+  const vacancyId = Number(vacancyParam)
+  const hasVacancy = vacancyParam !== '' && Number.isInteger(vacancyId) && vacancyId > 0
   const [session, setSession] = useState<RegularTaskSession | null>(null)
   const [result, setResult] = useState<RegularTaskSessionResult | null>(null)
   const [taskIndex, setTaskIndex] = useState(0)
@@ -44,11 +47,18 @@ export function CandidateRegularTasksPage() {
     void document.documentElement.requestFullscreen?.().catch(() => undefined)
   }
 
+  useEffect(() => {
+    submittingRef.current = false
+    setSession(null)
+    setResult(null)
+    setAnswers({})
+    setTaskIndex(0)
+    setError(null)
+    setConfirmingFinish(false)
+  }, [vacancyId])
+
   const start = useCallback(async () => {
-    if (!Number.isInteger(vacancyId) || vacancyId <= 0) {
-      setError('Выберите вакансию из списка откликов')
-      return
-    }
+    if (!hasVacancy) return
     setError(null)
     setIsBusy(true)
     try {
@@ -59,7 +69,7 @@ export function CandidateRegularTasksPage() {
     } finally {
       setIsBusy(false)
     }
-  }, [vacancyId])
+  }, [hasVacancy, vacancyId])
 
   const tasks = session?.tasks ?? []
   const task = tasks[taskIndex]
@@ -159,6 +169,8 @@ export function CandidateRegularTasksPage() {
         </p>
       </div>
 
+      <CandidateVacancyPicker activeVacancyId={hasVacancy ? vacancyId : null} />
+
       {error !== null ? (
         <div className="flex items-start gap-3 rounded-panel bg-pvn-red/10 px-5 py-4 font-sans text-caption text-pvn-red-ink shadow-raised-sm">
           <span className="material-symbols-outlined shrink-0 text-[18px]">error</span>
@@ -166,7 +178,7 @@ export function CandidateRegularTasksPage() {
         </div>
       ) : null}
 
-      {result !== null ? (
+      {!hasVacancy ? null : result !== null ? (
         <div className="flex flex-col gap-4 rounded-panel bg-raised p-6 shadow-raised">
           <div className="flex items-center gap-3">
             <span className={result.forced_finish ? 'flex h-11 w-11 items-center justify-center rounded-xl bg-warn/15' : 'flex h-11 w-11 items-center justify-center rounded-xl bg-good/15'}>
