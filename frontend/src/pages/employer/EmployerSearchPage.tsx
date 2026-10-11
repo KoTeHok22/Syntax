@@ -3,6 +3,7 @@ import { ApiError } from '../../api/client'
 import { createInvitation, fetchDomains, fetchEmployerProfile, fetchMyVacancies, searchCandidates, anonymousCandidateId } from '../../api/platform'
 import type { CandidateCard as CandidateCardData, Domain, Vacancy } from '../../api/platform'
 import { CandidateCard } from '../../components/CandidateCard'
+import { CandidateProofPanel } from '../../components/CandidateProofPanel'
 import { CardColumns } from '../../components/CardColumns'
 import { Modal } from '../../components/Modal'
 import { Toast } from '../../components/Toast'
@@ -597,7 +598,12 @@ export function EmployerSearchPage() {
             columns={2}
             getKey={(card) => card.candidate_profile_id}
             items={cards}
-            renderItem={(card) => <CandidateCard card={card} onInvite={openInvitationModal} relevanceLabel={vacancyId !== undefined ? 'Совпадение с вакансией' : 'Совпадение с фильтрами'} />}
+            renderItem={(card) => (
+              <div className="flex flex-col gap-3">
+                <CandidateProofPanel card={card} />
+                <CandidateCard card={card} onInvite={openInvitationModal} relevanceLabel={vacancyId !== undefined ? 'Совпадение с вакансией' : 'Совпадение с фильтрами'} />
+              </div>
+            )}
           />
           <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
             <span className="font-mono text-[12px] text-ink-secondary">

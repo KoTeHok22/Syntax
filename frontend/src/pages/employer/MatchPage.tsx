@@ -10,6 +10,7 @@ import {
 } from '../../api/platform'
 import type { CandidateCard as CandidateCardData, Domain, EmployerProfile } from '../../api/platform'
 import { CandidateCard } from '../../components/CandidateCard'
+import { CandidateProofPanel } from '../../components/CandidateProofPanel'
 import { CardColumns } from '../../components/CardColumns'
 import { Modal } from '../../components/Modal'
 import { Toast } from '../../components/Toast'
@@ -480,7 +481,10 @@ export function MatchPage() {
                   getKey={(card) => card.candidate_profile_id}
                   items={sortedCards}
                   renderItem={(card) => (
-                    <CandidateCard card={card} onInvite={openInvitationModal} relevanceLabel="Совпадение с направлением" />
+                    <div className="flex flex-col gap-3">
+                      <CandidateProofPanel card={card} />
+                      <CandidateCard card={card} onInvite={openInvitationModal} relevanceLabel="Совпадение с направлением" />
+                    </div>
                   )}
                 />
                 <div className="flex flex-col items-center justify-between gap-4 pt-2 sm:flex-row">

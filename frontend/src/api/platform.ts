@@ -29,6 +29,8 @@ export interface CandidateCard {
   pvn_achievements: PvnAchievement[]
   match_relevance: number
   final_score: number
+  proof_tier: string
+  is_verified: boolean
   match_breakdown?: {
     stack: number
     semantic: number | null
