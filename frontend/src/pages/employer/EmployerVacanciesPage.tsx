@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ApiError } from '../../api/client'
 import { closeVacancy, createVacancy, fetchMyVacancies, updateVacancy } from '../../api/platform'
 import type { Vacancy } from '../../api/platform'
-import { Modal } from '../../components/Modal'
+import { Modal, modalBodyClass, modalColumnClass, modalFooterClass } from '../../components/Modal'
 import { Toast } from '../../components/Toast'
 import { gradeLabel, specializationLabel } from '../../lib/format'
 
@@ -450,7 +450,7 @@ export function EmployerVacanciesPage() {
 
       {modalMode !== 'closed' ? (
         <Modal labelledBy="vacancy-modal-title" onClose={closeModal} open panelClassName="relative my-auto w-full max-w-3xl overflow-hidden rounded-panel bg-raised shadow-raised-lg">
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className={modalColumnClass}>
             <div className="flex items-start justify-between gap-4 bg-inset px-6 py-4 shadow-inset-sm">
               <div className="flex flex-col gap-1">
                 <h2 className="font-mono text-h2 font-extrabold tracking-tight text-ink" id="vacancy-modal-title">
@@ -470,7 +470,8 @@ export function EmployerVacanciesPage() {
                 <span className="material-symbols-outlined text-[20px]">close</span>
               </button>
             </div>
-            <form className="flex flex-col gap-5 overflow-y-auto p-6" noValidate onSubmit={submitVacancy}>
+            <form className="flex min-h-0 flex-1 flex-col overflow-hidden" noValidate onSubmit={submitVacancy}>
+              <div className={modalBodyClass}>
               <div className="flex flex-col gap-1.5">
                 <label className="label-cap" htmlFor="vacancy-title">Название должности *</label>
                 <input
@@ -598,7 +599,8 @@ export function EmployerVacanciesPage() {
                   <span>{formError}</span>
                 </div>
               ) : null}
-              <div className="sticky bottom-0 -mx-6 flex flex-col items-center justify-end gap-3 border-t border-ink/10 bg-raised px-6 pb-1 pt-4 sm:flex-row">
+              </div>
+              <div className={modalFooterClass}>
                 <button className="btn-ghost w-full sm:w-auto" onClick={closeModal} type="button">Отмена</button>
                 <button className="btn-primary w-full sm:w-auto" disabled={isSubmitting} type="submit">
                   {isSubmitting

@@ -11,6 +11,11 @@ interface ModalProps {
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
+export const modalPanelClass = 'relative w-full max-w-2xl overflow-hidden rounded-panel bg-raised shadow-raised-lg'
+export const modalColumnClass = 'flex min-h-0 flex-1 flex-col overflow-hidden'
+export const modalBodyClass = 'flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto overscroll-contain p-6'
+export const modalFooterClass = 'flex shrink-0 flex-col items-stretch gap-3 border-t border-ink/10 bg-raised px-6 pb-4 pt-4 sm:flex-row sm:items-center sm:justify-end'
+
 export function Modal({ open, onClose, labelledBy, children, panelClassName }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null)
   const previouslyFocused = useRef<HTMLElement | null>(null)
@@ -61,7 +66,7 @@ export function Modal({ open, onClose, labelledBy, children, panelClassName }: M
       <div
         aria-labelledby={labelledBy}
         aria-modal="true"
-        className={`my-auto flex max-h-[calc(100dvh-2rem)] flex-col ${panelClassName ?? 'relative w-full max-w-2xl overflow-hidden rounded-panel bg-raised shadow-raised-lg'}`}
+        className={`my-auto flex max-h-[calc(100dvh-2rem)] min-h-0 flex-col ${panelClassName ?? modalPanelClass}`}
         ref={panelRef}
         role="dialog"
       >
