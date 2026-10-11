@@ -24,7 +24,6 @@ const candidateNav = [
   { to: '/candidate/invitations', label: 'Приглашения', end: false },
   { to: '/candidate/vacancies', label: 'Вакансии', end: false },
   { to: '/candidate/applications', label: 'Мои отклики', end: false },
-  { to: '/candidate/regular-tasks', label: 'Задания', end: false },
 ]
 
 export function Header() {

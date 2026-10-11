@@ -325,13 +325,22 @@ def create_demo_regular_tasks(db: Session) -> int:
     employer = db.query(EmployerProfile).order_by(EmployerProfile.id).first()
     if employer is None:
         return 0
+    vacancies = (
+        db.query(Vacancy)
+        .filter(Vacancy.employer_profile_id == employer.id, Vacancy.status == "open")
+        .order_by(Vacancy.id)
+        .all()
+    )
+    if not vacancies:
+        return 0
     created = 0
-    for statement, options, reference_answer in REGULAR_TASKS:
+    for index, (statement, options, reference_answer) in enumerate(REGULAR_TASKS):
         if db.query(RegularTask).filter(RegularTask.statement == statement).first() is not None:
             continue
         db.add(
             RegularTask(
                 employer_profile_id=employer.id,
+                vacancy_id=vacancies[index % len(vacancies)].id,
                 statement=statement,
                 task_format="multiple_choice",
                 options=options,

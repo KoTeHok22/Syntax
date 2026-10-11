@@ -75,14 +75,16 @@ def list_my_applications(
     db: Session = Depends(get_db),
     candidate_profile: CandidateProfile = Depends(get_candidate_profile),
 ):
-    return (
-        db.query(Application)
+    rows = (
+        db.query(Application, Vacancy)
+        .join(Vacancy, Application.vacancy_id == Vacancy.id)
         .filter(Application.candidate_profile_id == candidate_profile.id)
         .order_by(Application.created_at.desc())
         .offset(skip)
         .limit(limit)
         .all()
     )
+    return [application_response(application, vacancy.title) for application, vacancy in rows]
 
 
 @router.get("/applications/incoming", response_model=list[ApplicationResponse])

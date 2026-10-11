@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, patch
 
 from backend.api.routes.candidates import build_card
 from backend.core.testing import adaptive_verdict, result_score, suggested_grade
-from backend.models import PvnAchievement, RegularTaskSubmission, TestSession
+from backend.models import PvnAchievement, TestSession
 from backend.services import semantic_matching
 
 SEED = 42
@@ -22,14 +22,13 @@ STACKS = {
     "devops": ["linux", "docker", "kubernetes"],
 }
 CASE_INPUTS = [
-    ("same_stack", 0, 5, 3, None, None, 0.9, 0.9),
-    ("failed_one", 1, 4, 3, None, None, 0.9, 0.9),
-    ("partial_verified_stack", 0, 5, 2, None, None, 0.9, 0.9),
-    ("sparse_verified_stack", 1, 4, 1, None, None, 0.9, 0.9),
-    ("unverified_keyword_stuffing", None, 5, 3, None, None, 0.9, 0.9),
-    ("achievement_dominates", 0, 4, 1, 100.0, None, 0.9, 0.9),
-    ("regular_history_dominates", 0, 4, 1, None, 100.0, 0.9, 0.9),
-    ("misleading_semantic_mock", 1, 5, 2, None, None, 1.0, 0.1),
+    ("same_stack", 0, 5, 3, None, 0.9, 0.9),
+    ("failed_one", 1, 4, 3, None, 0.9, 0.9),
+    ("partial_verified_stack", 0, 5, 2, None, 0.9, 0.9),
+    ("sparse_verified_stack", 1, 4, 1, None, 0.9, 0.9),
+    ("unverified_keyword_stuffing", None, 5, 3, None, 0.9, 0.9),
+    ("achievement_dominates", 0, 4, 1, 100.0, 0.9, 0.9),
+    ("misleading_semantic_mock", 1, 5, 2, None, 1.0, 0.1),
 ]
 
 
@@ -59,7 +58,6 @@ class MemorySession:
         rows = {
             TestSession: self.candidate.sessions,
             PvnAchievement: self.candidate.achievements,
-            RegularTaskSubmission: self.candidate.submissions,
         }
         return MemoryQuery(rows.get(model, []))
 
@@ -71,7 +69,7 @@ def stress_dataset() -> list[dict]:
     cases = []
     for specialization, stack in STACKS.items():
         for grade in GRADES:
-            for name, claimed_correct, verified_correct, verified_stack_count, pvn, regular, claimed_semantic, verified_semantic in CASE_INPUTS:
+            for name, claimed_correct, verified_correct, verified_stack_count, pvn, claimed_semantic, verified_semantic in CASE_INPUTS:
                 cases.append(
                     {
                         "id": f"{specialization}-{grade}-{name}",
@@ -81,7 +79,6 @@ def stress_dataset() -> list[dict]:
                             "stack": stack,
                             "correct_count": claimed_correct,
                             "pvn": pvn,
-                            "regular": regular,
                             "semantic": claimed_semantic,
                             "relevant": False,
                         },
@@ -89,7 +86,6 @@ def stress_dataset() -> list[dict]:
                             "stack": stack[:verified_stack_count],
                             "correct_count": verified_correct,
                             "pvn": None,
-                            "regular": None,
                             "semantic": verified_semantic,
                             "relevant": True,
                         },
@@ -106,9 +102,6 @@ def candidate_fixture(case: dict, side: str, candidate_id: int):
     ]
     achievements = [] if inputs["pvn"] is None else [
         SimpleNamespace(score=inputs["pvn"], achievement_type="synthetic", level="mock", achieved_at=date(2026, 1, 1))
-    ]
-    submissions = [] if inputs["regular"] is None else [
-        SimpleNamespace(is_correct=True) for _ in range(TASKS_PER_SESSION)
     ]
     return SimpleNamespace(
         id=candidate_id,
@@ -128,7 +121,6 @@ def candidate_fixture(case: dict, side: str, candidate_id: int):
         embedding_model=None,
         sessions=sessions,
         achievements=achievements,
-        submissions=submissions,
     )
 
 
@@ -252,7 +244,7 @@ def render_report(results: dict) -> str:
         f"- {lexical['vacancies']} вакансий: 4 специализации (backend/frontend/data/devops) x 3 грейда (junior/middle/senior).",
         "- Для каждой вакансии 8 пар; 16 кандидатов, 5 фиксированных практических ответов на кандидата при наличии сессии.",
         f"- Всего {lexical['pairs']} пар и {lexical['pairs'] * 2} кандидатов; каждый набор отдельно ранжируется в lexical fallback и semantic mock режиме.",
-        "- Профили полностью заполнены; заявленный стек соперника всегда содержит все 3 требования вакансии. ПВН/регулярные результаты отсутствуют, кроме явно указанных случаев.",
+        "- Профили полностью заполнены; заявленный стек соперника всегда содержит все 3 требования вакансии. Достижения ПВН отсутствуют, кроме явно указанных случаев.",
         "- Метка relevant заранее задана только стороне verified (4/5 или 5/5); claimed сторона имеет 0/5, 1/5 или не имеет теста. Это искусственная метка, не экспертная оценка кандидата.",
         "- Ни задачи, ни ответы не исполняются/оцениваются: в backend передаются заданные correct_count и уже завершённые синтетические сессии.",
         "- Memory fixtures не содержат синтетических достижений и сессий; неизвестные модели возвращают пустой query result. При отсутствии завершённой сессии backend test_score=0.0, а не пропущенный компонент.",
@@ -260,8 +252,8 @@ def render_report(results: dict) -> str:
         "| Сценарий (по 12 пар) | Claimed / verified ответы | Verified стек | Claimed доп. сигнал | Mock cosine claimed / verified |",
         "|---|---|---|---|---|",
     ]
-    for name, claimed, verified, stack_count, pvn, regular, claimed_semantic, verified_semantic in CASE_INPUTS:
-        extra = f"PVN={pvn}" if pvn is not None else f"regular={regular}" if regular is not None else "нет"
+    for name, claimed, verified, stack_count, pvn, claimed_semantic, verified_semantic in CASE_INPUTS:
+        extra = f"PVN={pvn}" if pvn is not None else "нет"
         answers = "нет теста" if claimed is None else f"{claimed}/5"
         lines.append(f"| {name} | {answers} / {verified}/5 | {stack_count}/3 | {extra} | {claimed_semantic} / {verified_semantic} |")
     lines.extend([
@@ -282,7 +274,7 @@ def render_report(results: dict) -> str:
         )
     lines.extend([
         "",
-        "Top-5 сортируется как выдача: `(final_score, score)` по убыванию; при полном равенстве сохраняется порядок fixtures (claimed первым). Все вакансии имеют одинаковую структуру, поэтому 96 пар не являются 96 независимыми рыночными наблюдениями.",
+        "Top-5 сортируется как выдача: `(final_score, score)` по убыванию; при полном равенстве сохраняется порядок fixtures (claimed первым). Все вакансии имеют одинаковую структуру, поэтому пары не являются независимыми рыночными наблюдениями.",
         "Precision@5=1.000 в этом наборе не означает безошибочный подбор: top-5 не включает более слабые verified профили, которые проигрывают отдельные adversarial пары. Парные ошибки приведены отдельно и не исчезают из-за высокого агрегата.",
         "",
         "## Результат каждого типа пары",

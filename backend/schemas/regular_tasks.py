@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field, model_validator
 
 
 class RegularTaskCreate(BaseModel):
+    vacancy_id: int
     concept_id: int | None = None
     statement: str | None = Field(default=None, max_length=4000)
     options: list[str] | None = None
@@ -24,6 +25,7 @@ class RegularTaskCreate(BaseModel):
 
 class RegularTaskResponse(BaseModel):
     id: int
+    vacancy_id: int
     statement: str
     task_format: str
     options: list
@@ -31,18 +33,40 @@ class RegularTaskResponse(BaseModel):
     created_at: datetime
 
 
-class RegularTaskAnswer(BaseModel):
+class RegularTaskSessionResponse(BaseModel):
+    id: int
+    application_id: int
+    vacancy_id: int
+    status: str
+    task_count: int
+    correct_count: int
+    result_score: int | None = None
+    forced_finish: bool = False
+    expires_at: datetime | None = None
+    completed_at: datetime | None = None
+    tasks: list
+
+
+class RegularTaskAnswerSubmit(BaseModel):
+    regular_task_id: int
     option_index: int = Field(ge=0)
 
 
-class RegularTaskAnswerResponse(BaseModel):
-    regular_task_id: int
-    is_correct: bool
-
-
-class RegularTaskSubmissionResponse(BaseModel):
+class RegularTaskSessionResult(BaseModel):
     id: int
-    regular_task_id: int
-    candidate_profile_id: int
-    is_correct: bool
-    submitted_at: datetime
+    status: str
+    task_count: int
+    correct_count: int
+    result_score: int
+    forced_finish: bool = False
+
+
+class ApplicationTaskResult(BaseModel):
+    application_id: int
+    vacancy_id: int
+    status: str
+    task_count: int
+    correct_count: int
+    result_score: int | None = None
+    forced_finish: bool = False
+    completed_at: datetime | None = None

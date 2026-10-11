@@ -350,6 +350,7 @@ export function updateEmployerProfile(payload: EmployerProfilePayload): Promise<
 
 export interface RegularTask {
   id: number
+  vacancy_id: number
   statement: string
   task_format: string
   options: string[]
@@ -357,19 +358,59 @@ export interface RegularTask {
   created_at: string
 }
 
-export type CreateRegularTaskPayload = { concept_id: number } | { statement: string; options: string[]; correct_index: number }
+export type CreateRegularTaskPayload =
+  | { vacancy_id: number; concept_id: number }
+  | { vacancy_id: number; statement: string; options: string[]; correct_index: number }
 
-export interface RegularTaskAnswerResult {
-  regular_task_id: number
-  is_correct: boolean
+export interface RegularTaskSummary {
+  application_id: number
+  vacancy_id: number
+  task_count: number
+  status: string
+  result_score: number | null
+  correct_count: number
+  forced_finish: boolean
 }
 
-export interface RegularTaskSubmission {
+export interface RegularTaskSessionTask {
   id: number
-  regular_task_id: number
-  candidate_profile_id: number
-  is_correct: boolean
-  submitted_at: string
+  statement: string
+  task_format: string
+  options: string[]
+}
+
+export interface RegularTaskSession {
+  id: number
+  application_id: number
+  vacancy_id: number
+  status: string
+  task_count: number
+  correct_count: number
+  result_score: number | null
+  forced_finish: boolean
+  expires_at: string | null
+  completed_at: string | null
+  tasks: RegularTaskSessionTask[]
+}
+
+export interface RegularTaskSessionResult {
+  id: number
+  status: string
+  task_count: number
+  correct_count: number
+  result_score: number
+  forced_finish: boolean
+}
+
+export interface ApplicationTaskResult {
+  application_id: number
+  vacancy_id: number
+  status: string
+  task_count: number
+  correct_count: number
+  result_score: number | null
+  forced_finish: boolean
+  completed_at: string | null
 }
 
 export interface Concept {
@@ -387,20 +428,28 @@ export function createRegularTask(payload: CreateRegularTaskPayload): Promise<Re
   return post('/regular-tasks', payload)
 }
 
-export function fetchActiveRegularTasks(): Promise<RegularTask[]> {
-  return get('/regular-tasks')
+export function fetchVacancyTaskSummary(vacancyId: number): Promise<RegularTaskSummary> {
+  return get(`/regular-tasks/vacancy/${vacancyId}`)
 }
 
-export function answerRegularTask(id: number, optionIndex: number): Promise<RegularTaskAnswerResult> {
-  return post(`/regular-tasks/${id}/answer`, { option_index: optionIndex })
+export function startRegularTaskSession(vacancyId: number): Promise<RegularTaskSession> {
+  return post(`/regular-tasks/vacancy/${vacancyId}/session`)
 }
 
-export function fetchEmployerRegularTasks(): Promise<RegularTask[]> {
-  return get('/employer/regular-tasks')
+export function submitRegularTaskAnswers(
+  sessionId: number,
+  answers: { regular_task_id: number; option_index: number }[],
+): Promise<RegularTaskSessionResult> {
+  return post(`/regular-tasks/sessions/${sessionId}/answers`, answers)
 }
 
-export function fetchRegularTaskSubmissions(id: number): Promise<RegularTaskSubmission[]> {
-  return get(`/employer/regular-tasks/${id}/submissions`)
+export function fetchEmployerRegularTasks(vacancyId?: number): Promise<RegularTask[]> {
+  const query = vacancyId === undefined ? '' : `?vacancy_id=${vacancyId}`
+  return get(`/employer/regular-tasks${query}`)
+}
+
+export function fetchVacancyTaskResults(vacancyId: number): Promise<ApplicationTaskResult[]> {
+  return get(`/employer/regular-tasks/results?vacancy_id=${vacancyId}`)
 }
 
 export function closeRegularTask(id: number): Promise<RegularTask> {

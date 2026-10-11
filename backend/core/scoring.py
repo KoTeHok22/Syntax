@@ -3,14 +3,12 @@ from dataclasses import dataclass, fields
 WEIGHTS = {
     "test_score": 0.4,
     "pvn_achievements": 0.3,
-    "regular_task_score": 0.2,
     "profile_completeness": 0.1,
 }
 
 COMPONENT_LABELS = {
     "test_score": "Результат тестирования",
     "pvn_achievements": "Достижения ПВН",
-    "regular_task_score": "Регулярные задания",
     "profile_completeness": "Полнота профиля",
 }
 
@@ -19,7 +17,6 @@ COMPONENT_LABELS = {
 class ScoreComponents:
     test_score: float | None = None
     pvn_achievements: float | None = None
-    regular_task_score: float | None = None
     profile_completeness: float = 0.0
 
 

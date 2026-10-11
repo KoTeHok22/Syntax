@@ -697,6 +697,11 @@ def test_vacancy_and_application_flow(client):
     )
     assert duplicate.status_code == 409
 
+    mine = client.get("/applications/my", headers=auth(candidate_token))
+    assert mine.status_code == 200
+    my_row = next(item for item in mine.json() if item["id"] == application.json()["id"])
+    assert my_row["vacancy_title"] == vacancy.json()["title"]
+
     updated = client.put(
         f"/applications/{application.json()['id']}/status",
         json={"status": "viewed"},

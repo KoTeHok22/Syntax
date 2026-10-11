@@ -2,7 +2,7 @@ from backend.models.user import User
 from backend.models.profiles import CandidateProfile, CompanyOffice, EmployerProfile
 from backend.models.matching import Application, Category, Domain, Invitation, Vacancy
 from backend.models.testing import Concept, Task, TaskContext, TestAnswer, TestSession
-from backend.models.regular_tasks import RegularTask, RegularTaskSubmission
+from backend.models.regular_tasks import RegularTask, RegularTaskAnswer, RegularTaskSession
 from backend.models.pvn import PvnAchievement
 
 __all__ = [
@@ -21,6 +21,7 @@ __all__ = [
     "TestAnswer",
     "TestSession",
     "RegularTask",
-    "RegularTaskSubmission",
+    "RegularTaskSession",
+    "RegularTaskAnswer",
     "PvnAchievement",
 ]

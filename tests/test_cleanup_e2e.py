@@ -14,7 +14,8 @@ from backend.models import (
     PvnAchievement,
     Invitation,
     RegularTask,
-    RegularTaskSubmission,
+    RegularTaskAnswer,
+    RegularTaskSession as ApplicationTaskSession,
     Task,
     TestSession as CandidateTestSession,
     User,
@@ -49,17 +50,24 @@ def seed_run(db, run_id, prefix="e2e"):
     db.add_all([candidate, employer])
     db.flush()
     vacancy = Vacancy(employer_profile_id=employer.id, title=f"E2E {run_id}", salary_from=1, salary_to=2)
-    regular_task = RegularTask(employer_profile_id=employer.id, statement=f"E2E {run_id}", reference_answer=0)
+    db.add(vacancy)
+    db.flush()
+    regular_task = RegularTask(employer_profile_id=employer.id, vacancy_id=vacancy.id, statement=f"E2E {run_id}", reference_answer=0)
     concept = Concept(name=f"concept-{prefix}-{run_id}", domain="backend", grade="junior")
     test_session = CandidateTestSession(candidate_profile_id=candidate.id, grade="junior")
-    db.add_all([vacancy, regular_task, concept, test_session])
+    db.add_all([regular_task, concept, test_session])
+    db.flush()
+    application = Application(candidate_profile_id=candidate.id, vacancy_id=vacancy.id)
+    db.add(application)
+    db.flush()
+    task_session = ApplicationTaskSession(application_id=application.id, candidate_profile_id=candidate.id, vacancy_id=vacancy.id)
+    db.add(task_session)
     db.flush()
     db.add_all([
         CompanyOffice(employer_profile_id=employer.id, title="Office"),
         PvnAchievement(candidate_profile_id=candidate.id, achievement_type="contest", achieved_at=date(2026, 1, 1)),
-        Application(candidate_profile_id=candidate.id, vacancy_id=vacancy.id),
         Invitation(candidate_profile_id=candidate.id, employer_profile_id=employer.id, message="Invitation", salary_from=1, salary_to=2, company_name="Company", contact_method="email"),
-        RegularTaskSubmission(candidate_profile_id=candidate.id, regular_task_id=regular_task.id, is_correct=True),
+        RegularTaskAnswer(session_id=task_session.id, regular_task_id=regular_task.id, option_index=0, is_correct=True),
         Task(candidate_profile_id=candidate.id, session_id=test_session.id, concept_id=concept.id, grade="junior", statement="Task", task_format="multiple_choice", reference_answer="0"),
         Task(session_id=test_session.id, concept_id=concept.id, grade="junior", statement="Session task", task_format="multiple_choice", reference_answer="0"),
     ])
@@ -79,17 +87,21 @@ def test_cleanup_only_target_run_and_related_data(cleanup_db, monkeypatch):
     target, target_employer, target_vacancy, target_task = seed_run(db, "123")
     other, other_employer, other_vacancy, other_task = seed_run(db, "1234")
     demo, demo_employer, demo_vacancy, demo_task = seed_run(db, "123", prefix="demo")
+    cross_application = Application(candidate_profile_id=target.id, vacancy_id=demo_vacancy.id)
+    db.add(cross_application)
+    db.flush()
+    cross_task_session = ApplicationTaskSession(application_id=cross_application.id, candidate_profile_id=target.id, vacancy_id=demo_vacancy.id)
     db.add_all([
-        Application(candidate_profile_id=target.id, vacancy_id=demo_vacancy.id),
         Application(candidate_profile_id=demo.id, vacancy_id=target_vacancy.id),
         Invitation(candidate_profile_id=demo.id, employer_profile_id=target_employer.id, message="Target invitation", salary_from=1, salary_to=2, company_name="Company", contact_method="email"),
         Invitation(candidate_profile_id=target.id, employer_profile_id=demo_employer.id, message="Demo invitation", salary_from=1, salary_to=2, company_name="Company", contact_method="email"),
-        RegularTaskSubmission(candidate_profile_id=target.id, regular_task_id=demo_task.id, is_correct=True),
-        RegularTaskSubmission(candidate_profile_id=demo.id, regular_task_id=target_task.id, is_correct=True),
+        cross_task_session,
         User(email="ordinary.123@syntax.dev", password_hash="test", role="candidate"),
         User(email="e2e.candidate.123@example.com", password_hash="test", role="candidate"),
         User(email="e2e.candidate.123.extra@syntax.dev", password_hash="test", role="candidate"),
     ])
+    db.flush()
+    db.add(RegularTaskAnswer(session_id=cross_task_session.id, regular_task_id=demo_task.id, option_index=0, is_correct=True))
     db.commit()
     before = snapshot(db)
     monkeypatch.setenv("E2E_RUN_ID", "123")
@@ -113,6 +125,11 @@ def test_cleanup_only_target_run_and_related_data(cleanup_db, monkeypatch):
         "regular_tasks": {target_task.id},
     }
     session_ids = {row["id"] for row in before["test_sessions"] if row["candidate_profile_id"] == target.id}
+    application_session_ids = {
+        row["id"] for row in before["regular_task_sessions"]
+        if row["candidate_profile_id"] == target.id
+        or row["vacancy_id"] == target_vacancy.id
+    }
     for table, rows in before.items():
         expected = [
             row for row in rows
@@ -122,6 +139,7 @@ def test_cleanup_only_target_run_and_related_data(cleanup_db, monkeypatch):
             and not ("vacancy_id" in row and row["vacancy_id"] == target_vacancy.id)
             and not ("regular_task_id" in row and row["regular_task_id"] == target_task.id)
             and not ("session_id" in row and row["session_id"] in session_ids)
+            and not (table == "regular_task_answers" and row["session_id"] in application_session_ids)
         ]
         assert after[table] == expected, table
     assert cleanup_e2e.cleanup() == 0

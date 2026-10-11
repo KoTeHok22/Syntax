@@ -13,7 +13,6 @@ from backend.core.scoring import (
 from backend.models import (
     CandidateProfile,
     PvnAchievement,
-    RegularTaskSubmission,
     TestSession,
     User,
     Vacancy,
@@ -36,18 +35,14 @@ def visible_candidates(db: Session) -> list[CandidateProfile]:
     return [profile for profile, user in rows if is_demo_visible(user.email)]
 
 
-def build_components(candidate: CandidateProfile, achievements, latest_session, submissions) -> ScoreComponents:
+def build_components(candidate: CandidateProfile, achievements, latest_session) -> ScoreComponents:
     pvn_score = None
     if achievements:
         pvn_score = min(100.0, sum(a.score for a in achievements))
     test_score = latest_session.result_score if latest_session else 0.0
-    regular_score = None
-    if submissions:
-        regular_score = round(100.0 * sum(1 for s in submissions if s.is_correct) / len(submissions), 2)
     return ScoreComponents(
         test_score=test_score,
         pvn_achievements=pvn_score,
-        regular_task_score=regular_score,
         profile_completeness=profile_completeness(candidate),
     )
 
@@ -71,12 +66,7 @@ def build_card(db: Session, candidate: CandidateProfile, required_stack: list, s
         .order_by(TestSession.completed_at.desc())
         .first()
     )
-    submissions = (
-        db.query(RegularTaskSubmission)
-        .filter(RegularTaskSubmission.candidate_profile_id == candidate.id)
-        .all()
-    )
-    components = build_components(candidate, achievements, latest_session, submissions)
+    components = build_components(candidate, achievements, latest_session)
     score, breakdown = compute_score(components)
     match = relevance_breakdown(candidate.stack, required_stack, semantic_similarity)
     relevance = match["relevance"]

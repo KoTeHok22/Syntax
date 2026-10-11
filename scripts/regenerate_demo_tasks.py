@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from backend.db import SessionLocal  # noqa: E402
-from backend.models import Concept, EmployerProfile, RegularTask, User  # noqa: E402
+from backend.models import Concept, EmployerProfile, RegularTask, User, Vacancy  # noqa: E402
 from backend.services.task_generation import llm_task  # noqa: E402
 
 DEMO_EMPLOYER_EMAIL = "demo-employer@example.com"
@@ -42,11 +42,25 @@ async def main() -> None:
         if failed:
             raise SystemExit(f"LLM не вернул задания для: {', '.join(failed)}")
 
+        vacancies = (
+            db.query(Vacancy)
+            .filter(Vacancy.employer_profile_id == employer.id, Vacancy.status == "open")
+            .order_by(Vacancy.id)
+            .all()
+        )
+        if not vacancies:
+            raise SystemExit("У демо-работодателя нет открытых вакансий")
+
+        def vacancy_for(concept: Concept) -> Vacancy:
+            matches = [vacancy for vacancy in vacancies if vacancy.specialization == concept.domain]
+            return (matches or vacancies)[0]
+
         db.query(RegularTask).filter(RegularTask.employer_profile_id == employer.id).update({"is_active": False})
         for concept, draft in zip(chosen, drafts):
             db.add(
                 RegularTask(
                     employer_profile_id=employer.id,
+                    vacancy_id=vacancy_for(concept).id,
                     concept_id=concept.id,
                     statement=draft.statement,
                     task_format=draft.task_format,

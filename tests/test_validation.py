@@ -10,8 +10,9 @@ from scripts import validate
 
 def test_dataset_has_exact_independent_labels_and_varied_adversarial_cases():
     cases = validate.stress_dataset()
-    assert len(cases) == 96
-    assert len({case["id"] for case in cases}) == 96
+    expected = 12 * len(validate.CASE_INPUTS)
+    assert len(cases) == expected
+    assert len({case["id"] for case in cases}) == expected
     assert len({case["vacancy"]["id"] for case in cases}) == 12
     assert {case["case_type"] for case in cases} == {inputs[0] for inputs in validate.CASE_INPUTS}
     for case in cases:
@@ -30,8 +31,8 @@ def test_stress_counts_include_measured_ranking_failures():
     assert result["claimed_higher_count"] == sum(row["claimed_higher"] for row in rows)
     assert result["tie_count"] == sum(row["tie"] for row in rows)
     assert result["claimed_higher_count"] > 0
-    assert (result["verified_higher_count"], result["tie_count"], result["claimed_higher_count"]) == (60, 0, 36)
-    assert result["perfect_claimed_stack_count"] == 96
+    assert (result["verified_higher_count"], result["tie_count"], result["claimed_higher_count"]) == (60, 0, 24)
+    assert result["perfect_claimed_stack_count"] == 84
     assert result["top5_slots"] == 60
     assert result["precision_at_5"] == result["relevant_top5_slots"] / result["top5_slots"]
 
@@ -46,10 +47,10 @@ def test_actual_card_scoring_is_called_and_score_mutation_changes_results(monkey
 
     monkeypatch.setattr(validate, "build_card", record_call)
     initial = validate.run_stress_suite("lexical")
-    assert len(calls) == 192
+    assert len(calls) == 168
     monkeypatch.setattr(candidates, "compute_score", lambda components: (0.0, {}))
     changed = validate.run_stress_suite("lexical")
-    assert changed["tie_count"] == 96
+    assert changed["tie_count"] == 84
     assert changed["rows"] != initial["rows"]
 
 
@@ -60,7 +61,7 @@ def test_semantic_mock_exposes_misleading_similarity_and_lexical_fallback():
     semantic_row = next(row for row in semantic["rows"] if row["id"] == lexical_row["id"])
     assert lexical_row["verified_higher"]
     assert semantic_row["claimed_higher"]
-    assert (semantic["verified_higher_count"], semantic["tie_count"], semantic["claimed_higher_count"]) == (84, 0, 12)
+    assert (semantic["verified_higher_count"], semantic["tie_count"], semantic["claimed_higher_count"]) == (72, 0, 12)
 
 
 @pytest.mark.parametrize("mode", ["lexical", "semantic_mock"])
@@ -97,7 +98,7 @@ def test_report_is_reproducible_and_explicit_about_synthetic_limits():
     report = validate.render_report(first)
     assert "не оценка качества подбора на рынке труда" in report
     assert "PostgreSQL pgvector branch" in report
-    assert "96" in report
+    assert str(12 * len(validate.CASE_INPUTS)) in report
 
 
 def test_adaptation_still_uses_backend_verdict_and_grade_suggestion():

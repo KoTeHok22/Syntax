@@ -11,7 +11,8 @@ from backend.models import (
     PvnAchievement,
     Invitation,
     RegularTask,
-    RegularTaskSubmission,
+    RegularTaskAnswer,
+    RegularTaskSession,
     Task,
     TestAnswer,
     TestSession,
@@ -22,24 +23,33 @@ from backend.models import (
 
 def _delete_candidate(db, candidate_id: int) -> None:
     db.query(PvnAchievement).filter(PvnAchievement.candidate_profile_id == candidate_id).delete(synchronize_session=False)
-    db.query(Application).filter(Application.candidate_profile_id == candidate_id).delete(synchronize_session=False)
     db.query(Invitation).filter(Invitation.candidate_profile_id == candidate_id).delete(synchronize_session=False)
-    db.query(RegularTaskSubmission).filter(RegularTaskSubmission.candidate_profile_id == candidate_id).delete(synchronize_session=False)
-    session_ids = db.query(TestSession.id).filter(TestSession.candidate_profile_id == candidate_id)
-    db.query(TestAnswer).filter(TestAnswer.session_id.in_(session_ids)).delete(synchronize_session=False)
-    db.query(Task).filter(or_(Task.candidate_profile_id == candidate_id, Task.session_id.in_(session_ids))).delete(synchronize_session=False)
+    session_ids = db.query(RegularTaskSession.id).filter(RegularTaskSession.candidate_profile_id == candidate_id)
+    db.query(RegularTaskAnswer).filter(RegularTaskAnswer.session_id.in_(session_ids)).delete(synchronize_session=False)
+    db.query(RegularTaskSession).filter(RegularTaskSession.candidate_profile_id == candidate_id).delete(synchronize_session=False)
+    db.query(Application).filter(Application.candidate_profile_id == candidate_id).delete(synchronize_session=False)
+    test_session_ids = db.query(TestSession.id).filter(TestSession.candidate_profile_id == candidate_id)
+    db.query(TestAnswer).filter(TestAnswer.session_id.in_(test_session_ids)).delete(synchronize_session=False)
+    db.query(Task).filter(or_(Task.candidate_profile_id == candidate_id, Task.session_id.in_(test_session_ids))).delete(synchronize_session=False)
     db.query(TestSession).filter(TestSession.candidate_profile_id == candidate_id).delete(synchronize_session=False)
 
 
 def _delete_employer(db, employer_id: int) -> None:
     vacancy_ids = [row.id for row in db.query(Vacancy.id).filter(Vacancy.employer_profile_id == employer_id).all()]
     if vacancy_ids:
+        session_ids = db.query(RegularTaskSession.id).filter(RegularTaskSession.vacancy_id.in_(vacancy_ids))
+        db.query(RegularTaskAnswer).filter(RegularTaskAnswer.session_id.in_(session_ids)).delete(synchronize_session=False)
+        db.query(RegularTaskSession).filter(RegularTaskSession.vacancy_id.in_(vacancy_ids)).delete(synchronize_session=False)
         db.query(Application).filter(Application.vacancy_id.in_(vacancy_ids)).delete(synchronize_session=False)
+        task_ids = [row.id for row in db.query(RegularTask.id).filter(RegularTask.vacancy_id.in_(vacancy_ids)).all()]
+        if task_ids:
+            db.query(RegularTaskAnswer).filter(RegularTaskAnswer.regular_task_id.in_(task_ids)).delete(synchronize_session=False)
+        db.query(RegularTask).filter(RegularTask.vacancy_id.in_(vacancy_ids)).delete(synchronize_session=False)
     db.query(Vacancy).filter(Vacancy.employer_profile_id == employer_id).delete(synchronize_session=False)
     db.query(Invitation).filter(Invitation.employer_profile_id == employer_id).delete(synchronize_session=False)
-    task_ids = [row.id for row in db.query(RegularTask.id).filter(RegularTask.employer_profile_id == employer_id).all()]
-    if task_ids:
-        db.query(RegularTaskSubmission).filter(RegularTaskSubmission.regular_task_id.in_(task_ids)).delete(synchronize_session=False)
+    remaining_task_ids = [row.id for row in db.query(RegularTask.id).filter(RegularTask.employer_profile_id == employer_id).all()]
+    if remaining_task_ids:
+        db.query(RegularTaskAnswer).filter(RegularTaskAnswer.regular_task_id.in_(remaining_task_ids)).delete(synchronize_session=False)
     db.query(RegularTask).filter(RegularTask.employer_profile_id == employer_id).delete(synchronize_session=False)
 
 

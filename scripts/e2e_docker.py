@@ -150,13 +150,23 @@ def main() -> None:
 
             regular = client.post(
                 "/regular-tasks",
-                json={"statement": "E2E вопрос", "options": ["да", "нет"], "correct_index": 0},
+                json={"vacancy_id": vacancy.json()["id"], "statement": "E2E вопрос", "options": ["да", "нет"], "correct_index": 0},
                 headers=auth(employer_token),
             )
             assert regular.status_code == 201, regular.text
+            regular_session = client.post(
+                f"/regular-tasks/vacancy/{vacancy.json()['id']}/session",
+                headers=auth(candidate_token),
+            )
+            assert regular_session.status_code == 201, regular_session.text
+            session_body = regular_session.json()
+            answers = [
+                {"regular_task_id": item["id"], "option_index": 0}
+                for item in session_body["tasks"]
+            ]
             regular_answer = client.post(
-                f"/regular-tasks/{regular.json()['id']}/answer",
-                json={"option_index": 0},
+                f"/regular-tasks/sessions/{session_body['id']}/answers",
+                json=answers,
                 headers=auth(candidate_token),
             )
             assert regular_answer.status_code == 200, regular_answer.text
