@@ -174,7 +174,7 @@ export function EmployerSearchPage() {
 
   const stackKey = liveStackFilters.join(',')
   const domainSlug = selectedDomain?.slug ?? ''
-  const domainQuery = selectedDomain === null ? domainInput.trim() : ''
+  const domainQuery = selectedDomain === null ? debouncedDomainInput : ''
   const requestKey = `${vacancyId ?? ''}|${stackKey}|${domainSlug}|${domainQuery}|${grade}|${city}|${workFormat}|${hasPvn}|${verifiedOnly}|${minScore}`
   const filtersRef = useRef({ requestKey, vacancyId, stackKey, domainSlug, domainQuery, grade, city, workFormat, hasPvn, verifiedOnly, minScore })
   const searchGenerationRef = useRef(0)
@@ -251,7 +251,7 @@ export function EmployerSearchPage() {
     if (selectedDomain !== null) {
       chips.push({ label: selectedDomain.title, onRemove: () => setSelectedDomain(null) })
     } else if (domainQuery !== '') {
-      chips.push({ label: domainQuery, onRemove: () => setDomainInput('') })
+      chips.push({ label: domainQuery, onRemove: () => { setDomainInput(''); setDebouncedDomainInput('') } })
     }
     if (grade !== '') {
       const label = GRADES.find((item) => item.value === grade)?.label ?? grade
@@ -293,6 +293,7 @@ export function EmployerSearchPage() {
     setStackFilters([])
     setSelectedDomain(null)
     setDomainInput('')
+    setDebouncedDomainInput('')
     setDomainSuggestions([])
     setGrade('')
     setCityInput('')
@@ -661,7 +662,7 @@ export function EmployerSearchPage() {
             items={cards}
             renderItem={(card) => (
               <div className="flex flex-col gap-3">
-                <CandidateProofPanel card={card} />
+                <CandidateProofPanel card={card} stackProof={card.stack_proof} />
                 <CandidateCard card={card} onInvite={openInvitationModal} relevanceLabel={vacancyId !== undefined ? 'Совпадение с вакансией' : 'Совпадение с фильтрами'} />
                 <button
                   className="btn-ghost py-2 text-[13px]"

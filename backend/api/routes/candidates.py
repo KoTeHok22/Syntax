@@ -26,6 +26,7 @@ from backend.models import (
     EmployerProfile,
 )
 from backend.schemas.matching import CandidateCardResponse, CandidatePublicProfileResponse
+from backend.services.candidate_score import build_stack_proof, build_stack_proof_bulk
 from backend.services.reranking import rerank_enabled
 from backend.services.semantic_matching import relevance_breakdown, stack_intersection, vacancy_similarities
 
@@ -92,12 +93,24 @@ def verified_pvn_ids(db: Session, candidates: list[CandidateProfile]) -> dict[in
     return {user_id: pvn_id for user_id, pvn_id in rows if pvn_id}
 
 
+def card_stack_proof(
+    db: Session, candidate: CandidateProfile, precomputed: list[dict] | None
+) -> list[dict]:
+    if precomputed is not None:
+        return precomputed
+    try:
+        return build_stack_proof(db, candidate)
+    except (AttributeError, TypeError):
+        return []
+
+
 def build_card(
     db: Session,
     candidate: CandidateProfile,
     required_stack: list,
     semantic_similarity: float | None = None,
     pvn_id: str | None = None,
+    stack_proof: list[dict] | None = None,
 ) -> CandidateCardResponse:
     achievements = (
         db.query(PvnAchievement)
@@ -138,6 +151,7 @@ def build_card(
         match_breakdown=match,
         proof_tier=tier,
         is_verified=is_verified(components),
+        stack_proof=card_stack_proof(db, candidate, stack_proof),
     )
 
 
@@ -319,8 +333,18 @@ def list_category_cards(
     if stack:
         candidates = [c for c in candidates if stack_matches(c.stack, stack)]
     verified = verified_pvn_ids(db, candidates)
+    proofs = build_stack_proof_bulk(db, candidates)
     cards = apply_card_filters(
-        [build_card(db, c, stack or [], pvn_id=verified.get(c.user_id)) for c in candidates],
+        [
+            build_card(
+                db,
+                c,
+                stack or [],
+                pvn_id=verified.get(c.user_id),
+                stack_proof=proofs.get(c.id),
+            )
+            for c in candidates
+        ],
         has_pvn,
         min_score,
         verified_only,
@@ -421,8 +445,19 @@ async def search_candidates(
         if reranked_order is not None:
             candidates = reranked_order
     verified = verified_pvn_ids(db, candidates)
+    proofs = build_stack_proof_bulk(db, candidates)
     cards = apply_card_filters(
-        [build_card(db, c, vacancy.stack if vacancy is not None else stack or [], similarities.get(c.id), verified.get(c.user_id)) for c in candidates],
+        [
+            build_card(
+                db,
+                c,
+                vacancy.stack if vacancy is not None else stack or [],
+                similarities.get(c.id),
+                verified.get(c.user_id),
+                stack_proof=proofs.get(c.id),
+            )
+            for c in candidates
+        ],
         has_pvn,
         min_score,
         verified_only,

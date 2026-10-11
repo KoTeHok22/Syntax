@@ -527,7 +527,7 @@ export function MatchPage() {
                   items={sortedCards}
                   renderItem={(card) => (
                     <div className="flex flex-col gap-3">
-                      <CandidateProofPanel card={card} />
+                      <CandidateProofPanel card={card} stackProof={card.stack_proof} />
                       <CandidateCard card={card} onInvite={openInvitationModal} relevanceLabel="Совпадение с направлением" />
                       <button
                         className="btn-ghost py-2 text-[13px]"

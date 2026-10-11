@@ -43,6 +43,7 @@ export interface CandidateCard {
   final_score: number
   proof_tier: string
   is_verified: boolean
+  stack_proof?: StackProofItem[]
   match_breakdown?: {
     stack: number
     semantic: number | null

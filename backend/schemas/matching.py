@@ -167,6 +167,7 @@ class CandidateCardResponse(BaseModel):
     match_breakdown: dict = Field(default_factory=dict)
     proof_tier: str = "claimed"
     is_verified: bool = False
+    stack_proof: list[dict] = Field(default_factory=list)
 
 
 class CandidatePublicProfileResponse(BaseModel):
