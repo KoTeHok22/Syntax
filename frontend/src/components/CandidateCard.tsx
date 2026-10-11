@@ -24,6 +24,12 @@ export function CandidateCard({ card, onInvite, relevanceLabel = 'Совпаде
           <span className="font-mono text-[13px] font-semibold text-pvn-blue">
             {specializationLabel(card.specialization)} · {gradeLabel(card.grade)}
           </span>
+          {card.is_pvn_verified ? (
+            <span className="flex w-fit items-center gap-1 rounded-lg bg-good/15 px-2 py-0.5 font-mono text-[11px] font-semibold text-good-ink">
+              <span className="material-symbols-outlined text-[13px] leading-none">verified</span>
+              ПВН ID подтверждён
+            </span>
+          ) : null}
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">
           <div className="flex items-baseline gap-1 rounded-xl bg-pvn-blue/10 px-3 py-1.5">

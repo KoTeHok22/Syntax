@@ -294,7 +294,17 @@ def synchronize_candidate(db: Any, user: Any, claims: Mapping[str, Any], setting
     profile = db.query(CandidateProfile).filter(CandidateProfile.user_id == user.id).one_or_none()
     if profile is None:
         raise OIDCValidationError("Candidate profile is missing")
-    user.pvn_id = enrichment.pvn_id or (enrichment.subject if len(enrichment.subject) <= 64 else None)
+    candidate_pvn_id = enrichment.pvn_id or (enrichment.subject if len(enrichment.subject) <= 64 else None)
+    if candidate_pvn_id is not None:
+        from backend.models import User as UserModel
+
+        taken = (
+            db.query(UserModel.id)
+            .filter(UserModel.pvn_id == candidate_pvn_id, UserModel.id != user.id)
+            .first()
+        )
+        if taken is None:
+            user.pvn_id = candidate_pvn_id
     name = claims.get("name")
     if not profile.full_name and isinstance(name, str) and len(name) <= 255:
         profile.full_name = name.strip()

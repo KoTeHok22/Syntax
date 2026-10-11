@@ -48,6 +48,7 @@ interface ProfileForm {
   soft_skills: string
   email: string
   phone: string
+  pvn_id: string
 }
 
 function formFromProfile(profile: CandidateProfile, fallbackEmail = ''): ProfileForm {
@@ -59,6 +60,7 @@ function formFromProfile(profile: CandidateProfile, fallbackEmail = ''): Profile
     soft_skills: profile.soft_skills.join(', '),
     email: profile.contacts?.email ?? fallbackEmail,
     phone: profile.contacts?.phone ?? '',
+    pvn_id: profile.pvn_id ?? '',
   }
 }
 
@@ -175,6 +177,7 @@ export function CandidateProfilePage() {
         years_of_experience: years,
         soft_skills: form.soft_skills.split(',').map((item) => item.trim()).filter((item) => item !== ''),
         contacts: Object.keys(contacts).length > 0 ? contacts : null,
+        pvn_id: form.pvn_id.trim(),
         avatar_data_url: avatarDataUrl ?? '',
         avatar_zoom: avatarCrop.zoom,
         avatar_offset_x: avatarCrop.offsetX,
@@ -398,6 +401,12 @@ export function CandidateProfilePage() {
                 <p className="font-mono text-[13px] text-ink-secondary">
                   Кандидат{profile.specialization !== null ? ` · ${specializationLabels[profile.specialization] ?? profile.specialization}` : ''}
                 </p>
+                {profile.is_pvn_verified ? (
+                  <span className="mt-1 flex w-fit items-center gap-1 rounded-lg bg-good/15 px-2 py-0.5 font-mono text-[11px] font-semibold text-good-ink">
+                    <span className="material-symbols-outlined text-[13px] leading-none">verified</span>
+                    ПВН ID подтверждён{profile.pvn_id ? `: ${profile.pvn_id}` : ''}
+                  </span>
+                ) : null}
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-2 sm:flex-col sm:items-stretch">
@@ -498,6 +507,23 @@ export function CandidateProfilePage() {
                   <div className="flex flex-col gap-1.5">
                     <label className="label-cap" htmlFor="profile-phone">Телефон</label>
                     <input className="field" id="profile-phone" onChange={(event) => setForm({ ...form, phone: event.target.value })} placeholder="+7 900 000-00-00" type="tel" value={form.phone} />
+                  </div>
+                  <div className="flex flex-col gap-1.5 md:col-span-2">
+                    <label className="label-cap" htmlFor="profile-pvn-id">ПВН ID (необязательно)</label>
+                    <input
+                      autoComplete="off"
+                      className="field"
+                      id="profile-pvn-id"
+                      onChange={(event) => setForm({ ...form, pvn_id: event.target.value })}
+                      placeholder="PVN-100001"
+                      type="text"
+                      value={form.pvn_id}
+                    />
+                    <span className="font-sans text-[12px] text-ink-secondary">
+                      {profile.is_pvn_verified
+                        ? 'ПВН ID указан — работодатели видят отметку о подтверждении.'
+                        : 'Укажите ID из личного кабинета ПВН, чтобы работодатели видели отметку о подтверждении. Поле необязательное.'}
+                    </span>
                   </div>
                 </div>
                 {formError !== null ? (

@@ -75,6 +75,7 @@ export function EmployerSearchPage() {
   const [isDomainFocused, setIsDomainFocused] = useState(false)
   const [grade, setGrade] = useState('')
   const [hasPvn, setHasPvn] = useState(false)
+  const [verifiedOnly, setVerifiedOnly] = useState(false)
   const [minScore, setMinScore] = useState(0)
   const [cards, setCards] = useState<CandidateCardData[]>([])
   const [searchError, setSearchError] = useState<string | null>(null)
@@ -155,8 +156,8 @@ export function EmployerSearchPage() {
   const stackKey = liveStackFilters.join(',')
   const domainSlug = selectedDomain?.slug ?? ''
   const domainQuery = selectedDomain === null ? domainInput.trim() : ''
-  const requestKey = `${vacancyId ?? ''}|${stackKey}|${domainSlug}|${domainQuery}|${grade}|${hasPvn}|${minScore}`
-  const filtersRef = useRef({ requestKey, vacancyId, stackKey, domainSlug, domainQuery, grade, hasPvn, minScore })
+  const requestKey = `${vacancyId ?? ''}|${stackKey}|${domainSlug}|${domainQuery}|${grade}|${hasPvn}|${verifiedOnly}|${minScore}`
+  const filtersRef = useRef({ requestKey, vacancyId, stackKey, domainSlug, domainQuery, grade, hasPvn, verifiedOnly, minScore })
   const searchGenerationRef = useRef(0)
 
   const loadCards = useCallback(async (skip: number, signal: AbortSignal) => {
@@ -179,6 +180,7 @@ export function EmployerSearchPage() {
           q: current.domainSlug === '' && current.domainQuery !== '' ? current.domainQuery : undefined,
           grade: current.grade !== '' ? current.grade : undefined,
           has_pvn: current.hasPvn ? true : undefined,
+          verified_only: current.verifiedOnly ? true : undefined,
           min_score: current.minScore > 0 ? current.minScore : undefined,
           skip,
           limit: PAGE_LIMIT,
@@ -201,8 +203,8 @@ export function EmployerSearchPage() {
   }, [])
 
   useEffect(() => {
-    filtersRef.current = { requestKey, vacancyId, stackKey, domainSlug, domainQuery, grade, hasPvn, minScore }
-  }, [requestKey, vacancyId, stackKey, domainSlug, domainQuery, grade, hasPvn, minScore])
+    filtersRef.current = { requestKey, vacancyId, stackKey, domainSlug, domainQuery, grade, hasPvn, verifiedOnly, minScore }
+  }, [requestKey, vacancyId, stackKey, domainSlug, domainQuery, grade, hasPvn, verifiedOnly, minScore])
 
   useEffect(() => {
     searchGenerationRef.current += 1
@@ -240,9 +242,10 @@ export function EmployerSearchPage() {
       })
     })
     if (hasPvn) chips.push({ label: 'Только с ПВН', onRemove: () => setHasPvn(false) })
+    if (verifiedOnly) chips.push({ label: 'Только с ПВН ID', onRemove: () => setVerifiedOnly(false) })
     if (minScore > 0) chips.push({ label: `Балл от ${minScore}`, onRemove: () => setMinScore(0) })
     return chips
-  }, [vacancyId, vacancies, selectedDomain, domainQuery, grade, stackFilters, hasPvn, minScore])
+  }, [vacancyId, vacancies, selectedDomain, domainQuery, grade, stackFilters, hasPvn, verifiedOnly, minScore])
 
   const applyStackInput = () => {
     const parsed = stackInput
@@ -499,6 +502,15 @@ export function EmployerSearchPage() {
                 type="checkbox"
               />
               <span className="font-sans text-caption font-medium text-ink">Только с достижениями ПВН</span>
+            </label>
+            <label className="flex cursor-pointer select-none items-center gap-2 py-2.5">
+              <input
+                checked={verifiedOnly}
+                className="h-4 w-4 rounded accent-pvn-blue"
+                onChange={(event) => setVerifiedOnly(event.target.checked)}
+                type="checkbox"
+              />
+              <span className="font-sans text-caption font-medium text-ink">Только с подтверждённым ПВН ID</span>
             </label>
           </div>
         </div>

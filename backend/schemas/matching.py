@@ -17,6 +17,7 @@ def validate_salary_range(salary_from: int, salary_to: int) -> None:
 
 class CandidateProfileUpdate(BaseModel):
     full_name: str | None = Field(default="", max_length=255)
+    pvn_id: str | None = Field(default=None, max_length=64)
     contacts: dict = Field(default_factory=dict)
     stack: list[str] = Field(default_factory=list)
     years_of_experience: float = Field(default=0, ge=0)
@@ -48,6 +49,8 @@ class CandidateProfileResponse(BaseModel):
     grade_confirmed: bool = False
     grade_valid_until: datetime | None = None
     is_visible: bool
+    pvn_id: str | None = None
+    is_pvn_verified: bool = False
     score: float = 0.0
     score_breakdown: dict = Field(default_factory=dict)
     avatar_data_url: str | None = None
@@ -151,6 +154,7 @@ class CandidateCardResponse(BaseModel):
     score: float
     score_breakdown: dict
     has_pvn_history: bool
+    is_pvn_verified: bool = False
     pvn_achievements: list
     match_relevance: float
     final_score: float

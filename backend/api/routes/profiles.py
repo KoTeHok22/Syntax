@@ -39,6 +39,9 @@ router = APIRouter()
 
 def candidate_profile_response(profile: CandidateProfile, db: Session) -> CandidateProfileResponse:
     payload = CandidateProfileResponse.model_validate(profile)
+    owner = db.get(User, profile.user_id)
+    payload.pvn_id = owner.pvn_id if owner is not None else None
+    payload.is_pvn_verified = payload.pvn_id is not None
     payload.grade_confirmed = grade_confirmation_active(profile.grade_confirmed_at)
     payload.grade_valid_until = grade_confirmation_expires_at(profile.grade_confirmed_at)
     payload.score, payload.score_breakdown = candidate_score(db, profile)
@@ -87,6 +90,20 @@ async def update_my_candidate_profile(
     payload = request.model_dump()
     if payload.get("full_name") is None:
         payload["full_name"] = ""
+    pvn_id = payload.pop("pvn_id", None)
+    if pvn_id is not None:
+        normalized = pvn_id.strip() or None
+        owner = db.get(User, profile.user_id)
+        if normalized is not None and owner is not None:
+            taken = (
+                db.query(User.id)
+                .filter(User.pvn_id == normalized, User.id != owner.id)
+                .first()
+            )
+            if taken is not None:
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Этот ПВН ID уже привязан к другому аккаунту")
+        if owner is not None:
+            owner.pvn_id = normalized
     avatar_provided = request.avatar_data_url is not None
     avatar_data_url = payload.pop("avatar_data_url", None)
     avatar_zoom = payload.pop("avatar_zoom", None)

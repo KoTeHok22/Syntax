@@ -51,7 +51,21 @@ def match_relevance(candidate_stack: list, required_stack: list) -> float:
     return stack_intersection(candidate_stack, required_stack)
 
 
-def build_card(db: Session, candidate: CandidateProfile, required_stack: list, semantic_similarity: float | None = None) -> CandidateCardResponse:
+def verified_pvn_ids(db: Session, candidates: list[CandidateProfile]) -> dict[int, str]:
+    user_ids = {candidate.user_id for candidate in candidates}
+    if not user_ids:
+        return {}
+    rows = db.query(User.id, User.pvn_id).filter(User.id.in_(user_ids), User.pvn_id.isnot(None)).all()
+    return {user_id: pvn_id for user_id, pvn_id in rows if pvn_id}
+
+
+def build_card(
+    db: Session,
+    candidate: CandidateProfile,
+    required_stack: list,
+    semantic_similarity: float | None = None,
+    pvn_id: str | None = None,
+) -> CandidateCardResponse:
     achievements = (
         db.query(PvnAchievement)
         .filter(PvnAchievement.candidate_profile_id == candidate.id)
@@ -78,6 +92,7 @@ def build_card(db: Session, candidate: CandidateProfile, required_stack: list, s
         score=score,
         score_breakdown=breakdown,
         has_pvn_history=has_pvn_history(components),
+        is_pvn_verified=pvn_id is not None,
         pvn_achievements=[
             {"type": a.achievement_type, "level": a.level, "date": a.achieved_at.isoformat(), "score": a.score}
             for a in achievements
@@ -122,10 +137,12 @@ async def apply_rerank(query: str, candidates: list) -> list:
     return [candidate for _, candidate in indexed] + tail
 
 
-def apply_card_filters(cards: list, has_pvn: bool | None, min_score: float | None) -> list:
+def apply_card_filters(cards: list, has_pvn: bool | None, min_score: float | None, verified_only: bool | None = None) -> list:
     filtered = cards
     if has_pvn is not None:
         filtered = [c for c in filtered if c.has_pvn_history == has_pvn]
+    if verified_only is not None:
+        filtered = [c for c in filtered if c.is_pvn_verified == verified_only]
     if min_score is not None:
         filtered = [c for c in filtered if c.score >= min_score]
     return filtered
@@ -152,6 +169,7 @@ def list_category_cards(
     user: User = Depends(require_employer),
     stack: list[str] | None = Query(default=None),
     has_pvn: bool | None = Query(default=None),
+    verified_only: bool | None = Query(default=None),
     min_score: float | None = Query(default=None, ge=0, le=100),
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=200),
@@ -164,10 +182,12 @@ def list_category_cards(
     candidates = [c for c in visible_candidates(db) if c.category_id == category_id]
     if stack:
         candidates = [c for c in candidates if stack_matches(c.stack, stack)]
+    verified = verified_pvn_ids(db, candidates)
     cards = apply_card_filters(
-        [build_card(db, c, stack or []) for c in candidates],
+        [build_card(db, c, stack or [], pvn_id=verified.get(c.user_id)) for c in candidates],
         has_pvn,
         min_score,
+        verified_only,
     )
     cards.sort(key=lambda card: (card.final_score, card.score), reverse=True)
     return cards[skip : skip + limit]
@@ -183,6 +203,7 @@ async def search_candidates(
     grade: str | None = Query(default=None),
     stack: list[str] | None = Query(default=None),
     has_pvn: bool | None = Query(default=None),
+    verified_only: bool | None = Query(default=None),
     min_score: float | None = Query(default=None, ge=0, le=100),
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=200),
@@ -242,10 +263,12 @@ async def search_candidates(
         reranked = reranked_order is not None
         if reranked_order is not None:
             candidates = reranked_order
+    verified = verified_pvn_ids(db, candidates)
     cards = apply_card_filters(
-        [build_card(db, c, vacancy.stack if vacancy is not None else stack or [], similarities.get(c.id)) for c in candidates],
+        [build_card(db, c, vacancy.stack if vacancy is not None else stack or [], similarities.get(c.id), verified.get(c.user_id)) for c in candidates],
         has_pvn,
         min_score,
+        verified_only,
     )
     if not reranked:
         cards.sort(key=lambda card: (card.final_score, card.score), reverse=True)

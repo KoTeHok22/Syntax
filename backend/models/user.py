@@ -15,7 +15,7 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(255))
     role: Mapped[str] = mapped_column(String(16), index=True)
     consent_accepted: Mapped[bool] = mapped_column(Boolean, default=False)
-    pvn_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    pvn_id: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True, index=True)
     oidc_issuer: Mapped[str | None] = mapped_column(String(512), nullable=True)
     oidc_subject: Mapped[str | None] = mapped_column(String(255), nullable=True)
     is_email_confirmed: Mapped[bool] = mapped_column(Boolean, default=False)

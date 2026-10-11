@@ -43,6 +43,8 @@ def register(request: RegisterRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Требуется согласие на обработку персональных данных (152-ФЗ)")
     if db.query(User).filter(User.email == request.email).first() is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email уже зарегистрирован")
+    if request.pvn_id is not None and db.query(User).filter(User.pvn_id == request.pvn_id).first() is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Этот ПВН ID уже привязан к другому аккаунту")
     user = User(
         email=request.email,
         password_hash=hash_password(request.password),

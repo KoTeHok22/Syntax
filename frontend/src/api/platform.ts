@@ -25,6 +25,7 @@ export interface CandidateCard {
   score: number
   score_breakdown: Record<string, ScoreComponent>
   has_pvn_history: boolean
+  is_pvn_verified: boolean
   pvn_achievements: PvnAchievement[]
   match_relevance: number
   final_score: number
@@ -95,6 +96,7 @@ export function fetchCategories(
 export interface CardFilters {
   stack?: string[]
   has_pvn?: boolean
+  verified_only?: boolean
   min_score?: number
   skip?: number
   limit?: number
@@ -105,6 +107,7 @@ function buildFiltersQuery(filters: CardFilters): URLSearchParams {
   const query = new URLSearchParams()
   filters.stack?.forEach((item) => query.append('stack', item))
   if (filters.has_pvn !== undefined) query.set('has_pvn', String(filters.has_pvn))
+  if (filters.verified_only !== undefined) query.set('verified_only', String(filters.verified_only))
   if (filters.min_score !== undefined) query.set('min_score', String(filters.min_score))
   if (filters.q) query.set('q', filters.q)
   if (filters.skip !== undefined) query.set('skip', String(filters.skip))

@@ -52,6 +52,8 @@ export interface CandidateProfile {
   soft_skills: string[]
   contacts: Record<string, string> | null
   is_visible: boolean
+  pvn_id: string | null
+  is_pvn_verified: boolean
   grade_changed_at: string | null
   grade_confirmed_at: string | null
   grade_confirmed: boolean
