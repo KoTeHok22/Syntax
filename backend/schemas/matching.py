@@ -16,7 +16,7 @@ def validate_salary_range(salary_from: int, salary_to: int) -> None:
 
 
 class CandidateProfileUpdate(BaseModel):
-    full_name: str = Field(default="", max_length=255)
+    full_name: str | None = Field(default="", max_length=255)
     contacts: dict = Field(default_factory=dict)
     stack: list[str] = Field(default_factory=list)
     years_of_experience: float = Field(default=0, ge=0)

@@ -46,12 +46,32 @@ export class ApiError extends Error {
   }
 }
 
+const VALIDATION_MESSAGES: Record<string, string> = {
+  'Input should be a valid string': 'Проверьте заполнение полей: ожидается текст',
+  'Field required': 'Заполните обязательное поле',
+  'String should have at most 255 characters': 'Слишком длинное значение (максимум 255 символов)',
+  'Input should be a valid number': 'Ожидается число',
+  'Input should be greater than or equal to 0': 'Значение не может быть отрицательным',
+}
+
+function humanizeValidation(message: string): string {
+  const exact = VALIDATION_MESSAGES[message]
+  if (exact !== undefined) return exact
+  if (/should be a valid/.test(message)) return 'Проверьте заполнение полей'
+  if (/^String should have at least/.test(message)) return 'Значение слишком короткое'
+  return 'Проверьте заполнение полей'
+}
+
 async function parseError(response: Response): Promise<ApiError> {
   let detail = `Ошибка ${response.status}`
   try {
     const body = await response.json()
     if (typeof body.detail === 'string') detail = body.detail
-    else if (Array.isArray(body.detail)) detail = body.detail.map((item: { msg: string }) => item.msg).join('; ')
+    else if (Array.isArray(body.detail)) {
+      detail = body.detail
+        .map((item: { msg?: string }) => (typeof item?.msg === 'string' ? humanizeValidation(item.msg) : 'Проверьте заполнение полей'))
+        .join('; ')
+    }
   } catch {
     if (response.status === 401) detail = 'Требуется вход'
   }

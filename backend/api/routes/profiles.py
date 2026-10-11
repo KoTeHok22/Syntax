@@ -85,6 +85,8 @@ async def update_my_candidate_profile(
     db: Session = Depends(get_db),
 ):
     payload = request.model_dump()
+    if payload.get("full_name") is None:
+        payload["full_name"] = ""
     avatar_provided = request.avatar_data_url is not None
     avatar_data_url = payload.pop("avatar_data_url", None)
     avatar_zoom = payload.pop("avatar_zoom", None)
