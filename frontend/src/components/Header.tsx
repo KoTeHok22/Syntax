@@ -23,6 +23,7 @@ const candidateNav = [
   { to: '/candidate/testing', label: 'Тестирование', end: false },
   { to: '/candidate/invitations', label: 'Приглашения', end: false },
   { to: '/candidate/vacancies', label: 'Вакансии', end: false },
+  { to: '/candidate/applications', label: 'Мои отклики', end: false },
   { to: '/candidate/regular-tasks', label: 'Задания', end: false },
 ]
 

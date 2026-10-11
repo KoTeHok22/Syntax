@@ -51,6 +51,10 @@ test.describe.serial('полный сценарий ПВН', () => {
     await page.locator('#application-message').fill(`Отклик e2e ${runId}`)
     await page.getByRole('button', { name: 'Отправить отклик' }).click()
     await expect(page.getByText('отправлен').first()).toBeVisible({ timeout: 15_000 })
+
+    await page.goto('/candidate/applications')
+    await expect(page.getByRole('heading', { name: 'Мои отклики' })).toBeVisible()
+    await expect(page.getByText(`Отклик e2e ${runId}`).first()).toBeVisible()
     await expect(page.getByText('Новый').first()).toBeVisible()
 
     await page.getByRole('button', { name: 'Выйти' }).click()

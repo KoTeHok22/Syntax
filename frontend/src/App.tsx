@@ -15,6 +15,7 @@ import { CandidateProfilePage } from './pages/candidate/CandidateProfilePage'
 import { CandidateTestingPage } from './pages/candidate/CandidateTestingPage'
 import { CandidateInvitationsPage } from './pages/candidate/CandidateInvitationsPage'
 import { CandidateVacanciesPage } from './pages/candidate/CandidateVacanciesPage'
+import { CandidateApplicationsPage } from './pages/candidate/CandidateApplicationsPage'
 import { CandidateRegularTasksPage } from './pages/candidate/CandidateRegularTasksPage'
 
 function RootRedirect() {
@@ -127,6 +128,14 @@ export function App() {
             element={
               <RequireRole role="candidate">
                 <CandidateVacanciesPage />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="/candidate/applications"
+            element={
+              <RequireRole role="candidate">
+                <CandidateApplicationsPage />
               </RequireRole>
             }
           />

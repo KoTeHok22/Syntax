@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { ApiError } from '../../api/client'
 import { createApplication, fetchMyApplications, fetchVacancies } from '../../api/platform'
 import { fetchCandidateProfile } from '../../api/auth'
-import type { Application, Vacancy } from '../../api/platform'
+import type { Vacancy } from '../../api/platform'
 import { Modal } from '../../components/Modal'
 import { Toast } from '../../components/Toast'
 import { gradeLabel } from '../../lib/format'
-import { statusPill } from '../../lib/statusPill'
 
 const grades = ['', 'junior', 'middle', 'senior']
 const gradeRank: Record<string, number> = { junior: 0, middle: 1, senior: 2 }
@@ -21,18 +21,12 @@ const specializationLabels: Record<string, string> = {
   qa: 'QA',
 }
 
-const applicationStatusConfig: Record<Application['status'], { label: string; pill: string; icon: string }> = {
-  new: { label: 'Новый', pill: statusPill('info'), icon: 'schedule' },
-  viewed: { label: 'Просмотрен', pill: statusPill('info'), icon: 'visibility' },
-  accepted: { label: 'Принят', pill: statusPill('success'), icon: 'check_circle' },
-  rejected: { label: 'Отклонён', pill: statusPill('neutral'), icon: 'cancel' },
-}
-
 function formatSalary(from: number, to: number): string {
   return `${from.toLocaleString('ru-RU')} – ${to.toLocaleString('ru-RU')} ₽`
 }
 
 export function CandidateVacanciesPage() {
+  const navigate = useNavigate()
   const [gradeFilter, setGradeFilter] = useState('')
   const [specializationFilter, setSpecializationFilter] = useState('')
   const [vacancies, setVacancies] = useState<Vacancy[]>([])
@@ -44,8 +38,7 @@ export function CandidateVacanciesPage() {
   const [applyError, setApplyError] = useState<string | null>(null)
   const [visibleCount, setVisibleCount] = useState(9)
   const [applySuccess, setApplySuccess] = useState<string | null>(null)
-  const [applications, setApplications] = useState<Application[]>([])
-  const [isApplicationsLoading, setIsApplicationsLoading] = useState(true)
+  const [appliedVacancyIds, setAppliedVacancyIds] = useState<Set<number>>(new Set())
   const [candidateGrade, setCandidateGrade] = useState<string | null>(null)
   const [candidateSpecialization, setCandidateSpecialization] = useState<string | null>(null)
 
@@ -78,37 +71,27 @@ export function CandidateVacanciesPage() {
     }
   }, [])
 
-  const loadApplications = useCallback(async () => {
-    setIsApplicationsLoading(true)
-    try {
-      const list = await fetchMyApplications()
-      setApplications(list)
-    } catch {
-      setApplications([])
-    } finally {
-      setIsApplicationsLoading(false)
-    }
-  }, [])
-
   useEffect(() => {
     void loadVacancies(gradeFilter, specializationFilter)
   }, [gradeFilter, specializationFilter, loadVacancies])
 
   useEffect(() => {
-    void loadApplications()
-  }, [loadApplications])
+    fetchMyApplications()
+      .then((list) => setAppliedVacancyIds(new Set(list.map((application) => application.vacancy_id))))
+      .catch(() => setAppliedVacancyIds(new Set()))
+  }, [])
 
   const submitApplication = async () => {
     if (selectedVacancy === null) return
+    const applied = selectedVacancy
     setApplyError(null)
     setIsApplying(true)
     try {
-      const created = await createApplication(selectedVacancy.id, message)
+      await createApplication(applied.id, message)
       setSelectedVacancy(null)
       setMessage('')
-      setApplySuccess(`Отклик на «${selectedVacancy.title}» отправлен`)
-      setApplications((previous) => [created, ...previous.filter((item) => item.id !== created.id)])
-      void loadApplications()
+      setAppliedVacancyIds((previous) => new Set(previous).add(applied.id))
+      setApplySuccess(`Отклик на «${applied.title}» отправлен`)
     } catch (exception) {
       if (exception instanceof ApiError) setApplyError(exception.detail)
       else setApplyError('Не удалось связаться с сервером')
@@ -117,11 +100,6 @@ export function CandidateVacanciesPage() {
     }
   }
 
-  const vacancyTitleById = new Map(vacancies.map((vacancy) => [vacancy.id, vacancy.title]))
-  const appliedVacancyIds = useMemo(
-    () => new Set(applications.map((application) => application.vacancy_id)),
-    [applications],
-  )
   const rankOf = (value: string | null) => (value === null ? -1 : (gradeRank[value] ?? -1))
   const sortedVacancies = useMemo(() => {
     const withScore = vacancies.map((vacancy) => {
@@ -175,7 +153,7 @@ export function CandidateVacanciesPage() {
         </div>
       ) : null}
 
-      <Toast actionLabel="Мои отклики" message={applySuccess} onAction={() => document.getElementById('my-applications')?.scrollIntoView({ behavior: 'smooth' })} onClose={() => setApplySuccess(null)} />
+      <Toast actionLabel="Мои отклики" message={applySuccess} onAction={() => navigate('/candidate/applications')} onClose={() => setApplySuccess(null)} />
 
       {isLoading ? (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
@@ -264,57 +242,6 @@ export function CandidateVacanciesPage() {
           ) : null}
         </div>
       )}
-
-      <section className="flex flex-col gap-4" id="my-applications">
-        <h2 className="font-mono text-h2 font-semibold text-ink">Мои отклики</h2>
-        {isApplicationsLoading ? (
-          <div className="flex animate-pulse flex-col gap-3 rounded-panel bg-raised p-6 shadow-raised">
-            {[0, 1, 2].map((index) => (<div className="h-10 rounded-xl bg-inset" key={index} />))}
-          </div>
-        ) : applications.length === 0 ? (
-          <div className="flex flex-col items-center gap-3 rounded-panel bg-raised py-10 text-center text-ink-secondary shadow-raised">
-            <span className="material-symbols-outlined text-[36px] text-ink-muted">inbox</span>
-            <span className="font-sans text-body">Откликов пока нет</span>
-          </div>
-        ) : (
-          <div className="flex flex-col divide-y divide-ink/10 rounded-panel bg-raised p-6 shadow-raised">
-            {applications.map((application) => {
-              const statusConfig = applicationStatusConfig[application.status]
-              const vacancyTitle = vacancyTitleById.get(application.vacancy_id) ?? `Вакансия #${application.vacancy_id}`
-              return (
-                <div className="flex flex-col gap-3 py-3 first:pt-0 last:pb-0" key={application.id}>
-                  <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-                    <div className="flex min-w-0 items-center gap-3">
-                      <span className="material-symbols-outlined shrink-0 text-[20px] text-pvn-blue">work_outline</span>
-                      <div className="flex min-w-0 flex-col">
-                        <span className="truncate font-mono text-[13px] font-semibold text-ink">{vacancyTitle}</span>
-                        {application.message !== null ? (
-                          <span className="truncate font-sans text-caption text-ink-secondary">{application.message}</span>
-                        ) : null}
-                      </div>
-                    </div>
-                    <span className={`stat-pill shrink-0 self-start sm:self-center ${statusConfig.pill}`}>
-                      <span className="material-symbols-outlined text-[13px]">{statusConfig.icon}</span>
-                      {statusConfig.label}
-                    </span>
-                  </div>
-                  {application.interview_at ? (
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl bg-good/10 px-3 py-2 font-sans text-caption text-ink-secondary">
-                      <span className="flex items-center gap-1 font-mono text-[12px] font-bold text-good-ink">
-                        <span className="material-symbols-outlined text-[16px]">event_available</span>
-                        Интервью
-                      </span>
-                      <span>{new Date(application.interview_at).toLocaleString('ru-RU', { dateStyle: 'long', timeStyle: 'short' })}</span>
-                      {application.interview_link ? <span className="break-all font-mono text-[12px]">{application.interview_link}</span> : null}
-                      {application.interview_address ? <span>{application.interview_address}</span> : null}
-                    </div>
-                  ) : null}
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </section>
 
       {selectedVacancy !== null ? (
         <Modal labelledBy="apply-modal-title" onClose={() => setSelectedVacancy(null)} open panelClassName="relative w-full max-w-md overflow-y-auto rounded-panel bg-raised p-6 shadow-raised-lg">
