@@ -25,7 +25,7 @@ from backend.models import (
     Vacancy,
     EmployerProfile,
 )
-from backend.schemas.matching import CandidateCardResponse
+from backend.schemas.matching import CandidateCardResponse, CandidatePublicProfileResponse
 from backend.services.reranking import rerank_enabled
 from backend.services.semantic_matching import relevance_breakdown, stack_intersection, vacancy_similarities
 
@@ -139,6 +139,86 @@ def build_card(
         proof_tier=tier,
         is_verified=is_verified(components),
     )
+
+
+def build_public_profile(
+    db: Session,
+    candidate: CandidateProfile,
+    vacancy: Vacancy | None,
+    semantic_similarity: float | None = None,
+) -> CandidatePublicProfileResponse:
+    from backend.services.candidate_score import build_stack_proof
+
+    achievements = (
+        db.query(PvnAchievement)
+        .filter(PvnAchievement.candidate_profile_id == candidate.id)
+        .all()
+    )
+    latest_session = (
+        db.query(TestSession)
+        .filter(
+            TestSession.candidate_profile_id == candidate.id,
+            TestSession.status == "completed",
+        )
+        .order_by(TestSession.completed_at.desc())
+        .first()
+    )
+    components = build_components(candidate, achievements, latest_session)
+    score, breakdown = compute_score(components)
+    relevance: float | None = None
+    if vacancy is not None:
+        relevance = round(relevance_breakdown(candidate.stack, vacancy.stack, semantic_similarity)["relevance"], 4)
+    return CandidatePublicProfileResponse(
+        candidate_profile_id=candidate.id,
+        grade=candidate.grade,
+        specialization=candidate.specialization or "",
+        stack_proof=build_stack_proof(db, candidate),
+        years_of_experience=candidate.years_of_experience or 0.0,
+        soft_skills=list(candidate.soft_skills or []),
+        city=candidate.city or "",
+        work_format=candidate.work_format or "",
+        proof_tier=card_proof_tier(components),
+        is_verified=is_verified(components),
+        score=score,
+        score_breakdown=breakdown,
+        match_relevance=relevance,
+        pvn_achievements=[
+            {"type": a.achievement_type, "level": a.level}
+            for a in achievements
+        ],
+    )
+
+
+def find_visible_candidate(db: Session, candidate_profile_id: int) -> CandidateProfile:
+    row = (
+        db.query(CandidateProfile, User)
+        .join(User, CandidateProfile.user_id == User.id)
+        .filter(CandidateProfile.id == candidate_profile_id)
+        .first()
+    )
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Кандидат не найден")
+    profile, user = row
+    if not profile.is_visible or not is_demo_visible(user.email):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Кандидат не найден")
+    return profile
+
+
+@router.get("/candidates/{candidate_profile_id}", response_model=CandidatePublicProfileResponse)
+async def get_candidate_public_profile(
+    candidate_profile_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_employer),
+    vacancy_id: int | None = Query(default=None, ge=1),
+):
+    candidate = find_visible_candidate(db, candidate_profile_id)
+    vacancy = resolve_vacancy(db, user, vacancy_id)
+    similarity = None
+    if vacancy is not None:
+        similarities = await vacancy_similarities(db, vacancy, [candidate])
+        similarity = similarities.get(candidate.id)
+        db.commit()
+    return build_public_profile(db, candidate, vacancy, similarity)
 
 
 def domain_candidate_counts(db: Session) -> dict[int, int]:

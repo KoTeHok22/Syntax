@@ -169,6 +169,23 @@ class CandidateCardResponse(BaseModel):
     is_verified: bool = False
 
 
+class CandidatePublicProfileResponse(BaseModel):
+    candidate_profile_id: int
+    grade: str | None = None
+    specialization: str = ""
+    stack_proof: list[dict] = Field(default_factory=list)
+    years_of_experience: float = 0.0
+    soft_skills: list[str] = Field(default_factory=list)
+    city: str = ""
+    work_format: str = ""
+    proof_tier: str = "claimed"
+    is_verified: bool = False
+    score: float = 0.0
+    score_breakdown: dict = Field(default_factory=dict)
+    match_relevance: float | None = None
+    pvn_achievements: list[dict] = Field(default_factory=list)
+
+
 class VisibilityUpdate(BaseModel):
     is_visible: bool
 
