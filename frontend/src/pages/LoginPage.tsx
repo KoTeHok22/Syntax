@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { ApiError } from '../api/client'
@@ -52,7 +52,7 @@ const HERO_CONTENT = {
 export function LoginPage() {
   const { login, register } = useAuth()
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [mode, setMode] = useState<Mode>(searchParams.get('tab') === 'register' ? 'register' : 'login')
   const [role, setRole] = useState<'candidate' | 'employer'>('candidate')
   const [email, setEmail] = useState('')
@@ -64,7 +64,14 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const sessionExpired = searchParams.get('expired') === '1'
+  const [sessionExpired] = useState(searchParams.get('expired') === '1')
+
+  useEffect(() => {
+    if (searchParams.get('expired') !== '1') return
+    const nextParams = new URLSearchParams(searchParams)
+    nextParams.delete('expired')
+    setSearchParams(nextParams, { replace: true })
+  }, [searchParams, setSearchParams])
 
   const switchMode = (next: Mode) => {
     setMode(next)

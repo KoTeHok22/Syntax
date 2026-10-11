@@ -4,6 +4,7 @@ import { ApiError } from '../../api/client'
 import { downloadProfilePdf, uploadResume, anonymousCandidateId } from '../../api/platform'
 import { fetchCandidateProfile, updateCandidateProfile, updateGrade, updateVisibility } from '../../api/auth'
 import type { CandidateProfile } from '../../api/auth'
+import { useAuth } from '../../auth/AuthContext'
 import { fetchTestSessions } from '../../api/testing'
 import type { TestSession } from '../../api/testing'
 import { formatExperience, formatIsoDate, formatNumberInput, gradeLabel } from '../../lib/format'
@@ -49,14 +50,14 @@ interface ProfileForm {
   phone: string
 }
 
-function formFromProfile(profile: CandidateProfile): ProfileForm {
+function formFromProfile(profile: CandidateProfile, fallbackEmail = ''): ProfileForm {
   return {
     full_name: profile.full_name ?? '',
     specialization: profile.specialization ?? '',
     stack: profile.stack.join(', '),
     years_of_experience: profile.years_of_experience === null ? '' : String(profile.years_of_experience),
     soft_skills: profile.soft_skills.join(', '),
-    email: profile.contacts?.email ?? '',
+    email: profile.contacts?.email ?? fallbackEmail,
     phone: profile.contacts?.phone ?? '',
   }
 }
@@ -67,6 +68,7 @@ function anonymousId(profileId: number): string {
 
 export function CandidateProfilePage() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [profile, setProfile] = useState<CandidateProfile | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -402,7 +404,7 @@ export function CandidateProfilePage() {
               <button
                 className="btn-blue py-2 text-[13px]"
                 onClick={() => {
-                  setForm(formFromProfile(profile))
+                  setForm(formFromProfile(profile, user?.email ?? ''))
                   setFormError(null)
                   setIsEditing(true)
                 }}
