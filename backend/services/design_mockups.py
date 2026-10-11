@@ -54,21 +54,24 @@ FLAW_TEMPLATES: list[dict] = [
         """,
     },
     {
-        "flaw_id": "missing_state",
-        "title": "Нет обратной связи о состоянии",
-        "description": "Кнопка запускает долгую операцию, но интерфейс не показывает загрузку и не меняет состояние — пользователь не понимает, что происходит.",
-        "region": {"x": 0.05, "y": 0.75, "w": 0.9, "h": 0.1},
+        "flaw_id": "clipped_text",
+        "title": "Обрезанный текст надписи",
+        "description": "Подпись обрезана и не помещается в контейнер — часть текста скрыта, пользователь не видит полное значение.",
+        "region": {"x": 0.05, "y": 0.36, "w": 0.9, "h": 0.06},
         "html": """
-        <div style="color:#3a4256;font-size:15px;">Нажмите, чтобы оформить заказ. Операция может занять до минуты.</div>
+        <div style="background:#eef1f7;border-radius:10px;padding:12px 14px;overflow:hidden;white-space:nowrap;text-overflow:clip;font-size:15px;color:#1c2130;">Доставка курьером до двери по адресу: г. Москва, улица Ленина, дом 14, корпус 3</div>
         """,
     },
     {
-        "flaw_id": "no_confirmation",
-        "title": "Опасное действие без подтверждения",
-        "description": "Удаление выполняется одним нажатием без подтверждения и без возможности отмены.",
-        "region": {"x": 0.05, "y": 0.36, "w": 0.45, "h": 0.06},
+        "flaw_id": "overlapping_elements",
+        "title": "Элементы перекрывают друг друга",
+        "description": "Кнопка наложена поверх текста и скрывает его часть — содержимое нечитаемо из-за перекрытия.",
+        "region": {"x": 0.05, "y": 0.34, "w": 0.9, "h": 0.1},
         "html": """
-        <div style="color:#d02828;font-size:15px;text-decoration:underline;">Удалить заказ без подтверждения</div>
+        <div style="position:relative;height:72px;border:1px solid #e6e9f0;border-radius:12px;">
+          <div style="position:absolute;left:14px;top:14px;right:14px;font-size:15px;color:#1c2130;">Ваш заказ будет доставлен завтра с 10:00 до 18:00</div>
+          <div style="position:absolute;left:14px;top:26px;background:#2f5cff;color:#fff;padding:10px 16px;border-radius:10px;font-size:15px;">Изменить адрес</div>
+        </div>
         """,
     },
     {
