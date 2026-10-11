@@ -8,6 +8,7 @@ import { CandidateProofPanel } from '../../components/CandidateProofPanel'
 import { CardColumns } from '../../components/CardColumns'
 import { Modal } from '../../components/Modal'
 import { Toast } from '../../components/Toast'
+import { pluralize } from '../../lib/format'
 
 const PAGE_LIMIT = 20
 const DEBOUNCE_MS = 400
@@ -458,6 +459,9 @@ export function EmployerSearchPage() {
             Добавить
           </button>
         </form>
+        <p className="text-caption text-ink-muted">
+          Показаны кандидаты хотя бы с одним из выбранных навыков; выше — те, у кого совпадений больше.
+        </p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           <div className="relative flex flex-col gap-1.5">
             <label className="label-cap" htmlFor="search-domain">Направление</label>
@@ -592,14 +596,14 @@ export function EmployerSearchPage() {
 
       <div className="flex flex-wrap items-center gap-3">
         <span aria-live="polite" className="font-mono text-h2 font-bold text-ink">
-          Найдено: {cards.length}{hasMore ? '+' : ''}
+          Показано: {cards.length}
         </span>
         <span className="font-sans text-caption text-ink-secondary">
           {hasMore
-            ? 'показаны первые — нажмите «Показать ещё», чтобы увидеть остальных'
+            ? `${pluralize(cards.length, ['кандидат', 'кандидата', 'кандидатов'])} — нажмите «Показать ещё», чтобы увидеть остальных`
             : cards.length === 0
               ? 'ни один кандидат не подходит под фильтры'
-              : 'кандидатов соответствуют фильтрам'}
+              : `${pluralize(cards.length, ['кандидат', 'кандидата', 'кандидатов'])} ${pluralize(cards.length, ['соответствует', 'соответствуют', 'соответствуют'])} фильтрам`}
         </span>
         {isSearching && cards.length > 0 ? (
           <span className="flex items-center gap-2 font-sans text-caption text-ink-secondary">
@@ -681,7 +685,8 @@ export function EmployerSearchPage() {
           />
           <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
             <span className="font-mono text-[12px] text-ink-secondary">
-              Показано <span className="font-bold text-ink">{cards.length}</span> кандидатов
+              Показано <span className="font-bold text-ink">{cards.length}</span>{' '}
+              {pluralize(cards.length, ['кандидат', 'кандидата', 'кандидатов'])}
               {hasMore ? ' — есть ещё' : ''}
             </span>
             {hasMore ? (

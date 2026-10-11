@@ -14,6 +14,7 @@ import { CandidateProofPanel } from '../../components/CandidateProofPanel'
 import { CardColumns } from '../../components/CardColumns'
 import { Modal } from '../../components/Modal'
 import { Toast } from '../../components/Toast'
+import { pluralize } from '../../lib/format'
 
 const PAGE_LIMIT = 20
 const CATEGORY_PAGE_SIZE = 12
@@ -99,7 +100,6 @@ export function MatchPage() {
 
   const [categorySearch, setCategorySearch] = useState('')
   const [categoryTotal, setCategoryTotal] = useState(0)
-  const [poolTotal, setPoolTotal] = useState(0)
   const [isLoadingMoreCategories, setIsLoadingMoreCategories] = useState(false)
 
   const loadCategories = useCallback(async (query: string, skip: number) => {
@@ -111,9 +111,6 @@ export function MatchPage() {
       setDomains((previous) => (skip === 0 ? page.items : [...previous, ...page.items]))
       setCategoryTotal(page.total)
       if (skip === 0 && page.items.length > 0) setActiveDomain((current) => current ?? page.items[0])
-      if (skip === 0 && query === '') {
-        setPoolTotal(page.items.reduce((sum, domain) => sum + domain.candidate_count, 0))
-      }
     } catch (exception) {
       if (exception instanceof ApiError) setCategoriesError(exception.detail)
       else setCategoriesError('Не удалось загрузить направления')
@@ -185,8 +182,6 @@ export function MatchPage() {
       .then((profile) => setEmployerProfile(profile))
       .catch(() => setEmployerProfile(null))
   }, [])
-
-  const totalPool = poolTotal
 
   const sortedDomains = useMemo(
     () => [...domains].sort((left, right) => Number(right.candidate_count > 0) - Number(left.candidate_count > 0)),
@@ -276,11 +271,12 @@ export function MatchPage() {
     <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-6 px-4 py-8 sm:px-6">
       <div className="flex flex-col gap-1">
         <h1 className="font-mono text-display font-extrabold tracking-tight text-ink">Подбор кандидатов</h1>
-        {!isLoadingCategories && totalPool > 0 ? (
-          <p className="font-sans text-body text-ink-secondary">
-            {totalPool.toLocaleString('ru-RU')} кандидатов. Контакты откроются после принятия приглашения.
-          </p>
-        ) : null}
+        <p className="font-sans text-body text-ink-secondary">
+          {activeDomain !== null
+            ? `${activeDomain.candidate_count.toLocaleString('ru-RU')} ${pluralize(activeDomain.candidate_count, ['кандидат', 'кандидата', 'кандидатов'])} в направлении «${activeDomain.title}».`
+            : 'Выберите направление — покажем подходящих кандидатов.'}{' '}
+          Контакты откроются после принятия приглашения.
+        </p>
       </div>
 
       <Toast actionLabel="К приглашениям" message={successNotice} onAction={() => navigate('/employer/invitations')} onClose={() => setSuccessNotice(null)} />
@@ -377,7 +373,9 @@ export function MatchPage() {
             {activeDomain !== null ? (
               <div className="flex flex-col gap-2 border-b border-ink/10 pb-5 md:flex-row md:items-end md:justify-between">
                 <h2 className="font-mono text-h2 font-extrabold tracking-tight text-ink">{activeDomain.title}</h2>
-                <span className="font-sans text-caption text-ink-secondary">{activeDomain.candidate_count} кандидатов</span>
+                <span className="font-sans text-caption text-ink-secondary">
+                  {activeDomain.candidate_count} {pluralize(activeDomain.candidate_count, ['кандидат', 'кандидата', 'кандидатов'])}
+                </span>
               </div>
             ) : null}
 
@@ -542,7 +540,8 @@ export function MatchPage() {
                 />
                 <div className="flex flex-col items-center justify-between gap-4 pt-2 sm:flex-row">
                   <span className="font-mono text-[12px] text-ink-secondary">
-                    Показано <span className="font-bold text-ink">{cards.length}</span> кандидатов
+                    Показано <span className="font-bold text-ink">{cards.length}</span>{' '}
+                    {pluralize(cards.length, ['кандидат', 'кандидата', 'кандидатов'])}
                   </span>
                   {hasMore ? (
                     <button
