@@ -10,8 +10,8 @@
 |---|---|---|
 | Подтверждённый профиль против заявленного | 84/84 пар: verified строго выше claimed, равных и проигрышей нет (до правки формулы проигрышей было 24 из 84) | `python -m scripts.validate` |
 | Ранжирование на размеченных парах | Precision@5 0.400, NDCG@5 1.000, MRR 1.000 при `hard-gate`; без него NDCG@5 0.693 и MRR 0.500 | `python -m scripts.validate_pairs` |
-| Психометрика item bank | Reliability 0.776 при 20 задачах, `separation` 1.861, различимы 2 грейд-полосы из 3 | `python -m scripts.calibrate_items` |
-| Тесты | 301 passed, 0 failed, 10 skipped | `python -m pytest tests -q` |
+| Психометрика item bank | Reliability 0.783 при 20 задачах, `separation` 1.901, различимы 2 грейд-полосы из 3 | `python -m scripts.calibrate_items` |
+| Тесты | 387 passed, 0 failed, 10 skipped | `python -m pytest tests -q` |
 
 Ключевой эффект — `hard-gate` по тиру: профиль без завершённого теста не обходит подтверждённый ни в одной из 84 пар, а NDCG@5 на размеченном наборе растёт с 0.693 до 1.000. Что именно осталось непроверенным — `docs/limitations.md`.
 
@@ -24,7 +24,7 @@ cp .env.example .env
 docker compose up --build
 docker compose exec api python -m scripts.seed
 docker compose exec api python -m scripts.generate_task_pool
-docker compose exec api python -m scripts.generate_synthetic
+docker compose exec api python -m scripts.seed_demo
 ```
 
 - API: http://localhost:8000
@@ -87,32 +87,6 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 cd frontend && npm ci && npm run dev
 ```
 
-Тесты:
-
-```
-.venv/bin/python -m pytest tests -q
-```
-
-Последний прогон: 301 passed, 0 failed, 10 skipped — из них 10 PostgreSQL/pgvector-тестов пропущены без `TEST_POSTGRES_URL` (см. `docs/limitations.md`).
-
-UI e2e (Playwright, поднимает docker-стек и сидирует):
-
-```
-bash scripts/e2e_ui.sh
-```
-
-Контейнерный e2e (PostgreSQL + uvicorn в docker compose):
-
-```
-.venv/bin/python -m scripts.e2e_docker
-```
-
-Валидация механик (отчёт в `docs/validation-results.md`):
-
-```
-.venv/bin/python -m scripts.validate
-```
-
 Схема создаётся самим приложением: при старте API выполняет `CREATE EXTENSION IF NOT EXISTS vector` и `Base.metadata.create_all`. Поэтому на чистом томе достаточно `docker compose up --build` — отдельный шаг миграций не нужен.
 
 Alembic используется при развитии схемы на уже работающей базе:
@@ -127,20 +101,17 @@ DATABASE_URL=postgresql+psycopg://syntax:syntax@localhost:5432/syntax alembic up
 
 | Скрипт | Назначение |
 |---|---|
-| `scripts/seed.py` | банк концептов (40) и словарь контекстов генерации |
+| `scripts/seed.py` | банк концептов (107) и словарь контекстов генерации |
 | `scripts/generate_task_pool.py` | fallback-пул 240 предгенерированных задач |
 | `scripts/generate_synthetic.py` | 100 синтетических кандидатов, 20 вакансий для демо |
+| `scripts/seed_demo.py` | полный демо-сид + идемпотентный добор полей профиля и подтверждения грейда |
+| `scripts/backfill_grade_confirmation.py` | проставить `grade_confirmed_at` по завершённым сессиям на существующей базе |
 | `scripts/validate.py` | проверка пар verified/claimed и hard-gate, отчёт в `docs/validation-results.md` |
 | `scripts/validate_pairs.py` | Precision@5/NDCG@5/MRR на размеченном наборе пар, отчёт в `docs/pairs-results.md` |
 | `scripts/calibrate_items.py` | IRT-калибровка item bank, отчёт в `docs/psychometrics-results.md` |
 | `scripts/e2e_docker.py` | сквозной e2e-прогон против docker compose |
-| `scripts/e2e_ui.sh` | UI e2e (Playwright): полный сценарий ТЗ через браузер |
 | `scripts/build_docs_pdf.py` | сборка сопроводительной документации в PDF |
 | `scripts/build_pitch.py` | сборка презентации по шаблону ПВН |
-
-## Ограничения текущей поставки
-
-Данные синтетические, разметка командная, исходов найма нет; внешние контуры (PVN OIDC, реестр достижений, ATS, LLM-проверка, embedding-провайдер) покрыты mock-тестами, ветка pgvector не запускалась. Полный разбор — `docs/limitations.md`.
 
 ## Библиотеки и лицензии
 
@@ -156,7 +127,3 @@ DATABASE_URL=postgresql+psycopg://syntax:syntax@localhost:5432/syntax alembic up
 | reportlab | BSD-3-Clause |
 | httpx | BSD-3-Clause |
 | pytest | MIT |
-
-Шрифт Adwaita Sans (сборка PDF-профиля) — лицензия SIL Open Font License 1.1, файл в `backend/assets/fonts/`.
-
-Проект целиком — MIT (см. LICENSE).
