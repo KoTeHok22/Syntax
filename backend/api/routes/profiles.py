@@ -90,6 +90,8 @@ async def update_my_candidate_profile(
     payload = request.model_dump()
     if payload.get("full_name") is None:
         payload["full_name"] = ""
+    if payload.get("city") is None:
+        payload["city"] = ""
     pvn_id = payload.pop("pvn_id", None)
     if pvn_id is not None:
         normalized = pvn_id.strip() or None

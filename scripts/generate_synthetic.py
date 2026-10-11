@@ -42,6 +42,9 @@ STACKS = {
 GRADES = ["junior", "middle", "senior"]
 ABILITY_BY_GRADE = {"junior": 0.55, "middle": 0.7, "senior": 0.85}
 
+CITIES = ["Москва", "Санкт-Петербург", "Новосибирск", "Казань", "Екатеринбург", "Нижний Новгород", "Remote"]
+WORK_FORMATS = ["remote", "office", "hybrid"]
+
 FIRST_NAMES = ["Анна", "Борис", "Вера", "Глеб", "Дарья", "Егор", "Жанна", "Захар", "Ирина", "Кирилл", "Лидия", "Марк", "Надежда", "Олег", "Полина"]
 LAST_NAMES = ["Абрамов", "Белов", "Волкова", "Громов", "Дмитриева", "Ефимов", "Зайцева", "Иванов", "Крылов", "Лебедева", "Морозов", "Никитина", "Орлов", "Панова", "Романов"]
 SOFT_SKILLS = ["командная работа", "коммуникация", "ответственность", "обучаемость", "тайм-менеджмент", "критическое мышление"]
@@ -107,6 +110,8 @@ def create_demo_users(db: Session, count: int, rng: random.Random) -> int:
             soft_skills=rng.sample(SOFT_SKILLS, k=rng.randint(2, 4)),
             specialization=specialization,
             grade=grade,
+            city=CITIES[(i + rng.randrange(len(CITIES))) % len(CITIES)],
+            work_format=rng.choice(WORK_FORMATS),
             is_visible=True,
         )
         db.add(profile)

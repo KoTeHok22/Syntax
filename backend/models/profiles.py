@@ -28,6 +28,8 @@ class CandidateProfile(Base):
     embedding_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     embedding_model: Mapped[str | None] = mapped_column(String(255), nullable=True)
     specialization: Mapped[str] = mapped_column(String(64), default="")
+    city: Mapped[str] = mapped_column(String(128), default="")
+    work_format: Mapped[str] = mapped_column(String(16), default="")
     grade: Mapped[str | None] = mapped_column(String(16), nullable=True)
     category_id: Mapped[int | None] = mapped_column(ForeignKey("categories.id"), nullable=True)
     grade_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

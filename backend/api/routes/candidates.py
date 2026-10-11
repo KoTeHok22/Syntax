@@ -122,6 +122,8 @@ def build_card(
         candidate_profile_id=candidate.id,
         grade=candidate.grade,
         specialization=candidate.specialization,
+        city=candidate.city or "",
+        work_format=candidate.work_format or "",
         stack=candidate.stack,
         score=score,
         score_breakdown=breakdown,
@@ -179,6 +181,8 @@ def apply_card_filters(
     min_score: float | None,
     verified_only: bool | None = None,
     require_relevance: bool = False,
+    city: str | None = None,
+    work_format: str | None = None,
 ) -> list:
     filtered = cards
     if has_pvn is not None:
@@ -189,6 +193,12 @@ def apply_card_filters(
         filtered = [c for c in filtered if c.score >= min_score]
     if require_relevance:
         filtered = [c for c in filtered if meets_relevance_floor(c.match_relevance)]
+    city_token = (city or "").strip().lower()
+    if city_token:
+        filtered = [c for c in filtered if (c.city or "").strip().lower() == city_token]
+    format_token = (work_format or "").strip().lower()
+    if format_token:
+        filtered = [c for c in filtered if (c.work_format or "").strip().lower() == format_token]
     return filtered
 
 
@@ -215,6 +225,8 @@ def list_category_cards(
     has_pvn: bool | None = Query(default=None),
     verified_only: bool | None = Query(default=None),
     min_score: float | None = Query(default=None, ge=0, le=100),
+    city: str | None = Query(default=None, max_length=128),
+    work_format: str | None = Query(default=None, max_length=16),
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=200),
 ):
@@ -232,6 +244,8 @@ def list_category_cards(
         has_pvn,
         min_score,
         verified_only,
+        city=city,
+        work_format=work_format,
     )
     cards = sort_cards(cards)
     return cards[skip : skip + limit]
@@ -301,6 +315,8 @@ async def search_candidates(
     has_pvn: bool | None = Query(default=None),
     verified_only: bool | None = Query(default=None),
     min_score: float | None = Query(default=None, ge=0, le=100),
+    city: str | None = Query(default=None, max_length=128),
+    work_format: str | None = Query(default=None, max_length=16),
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=200),
 ):
@@ -330,6 +346,8 @@ async def search_candidates(
         has_pvn,
         min_score,
         verified_only,
+        city=city,
+        work_format=work_format,
     )
     if not reranked:
         cards = sort_cards(cards)

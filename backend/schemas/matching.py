@@ -23,6 +23,8 @@ class CandidateProfileUpdate(BaseModel):
     years_of_experience: float = Field(default=0, ge=0)
     soft_skills: list[str] = Field(default_factory=list)
     specialization: Specialization | Literal[""] = ""
+    city: str | None = Field(default="", max_length=128)
+    work_format: Literal["", "remote", "office", "hybrid"] = ""
     avatar_data_url: str | None = None
     avatar_zoom: float | None = Field(default=None, ge=1, le=3)
     avatar_offset_x: float | None = Field(default=None, ge=-50, le=50)
@@ -42,6 +44,8 @@ class CandidateProfileResponse(BaseModel):
     years_of_experience: float
     soft_skills: list
     specialization: str
+    city: str = ""
+    work_format: str = ""
     grade: str | None
     category_id: int | None
     grade_changed_at: datetime | None
@@ -150,6 +154,8 @@ class CandidateCardResponse(BaseModel):
     candidate_profile_id: int
     grade: str | None
     specialization: str
+    city: str = ""
+    work_format: str = ""
     stack: list
     score: float
     score_breakdown: dict
