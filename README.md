@@ -1,6 +1,19 @@
 # syntax
 
-Платформа обратного найма для ИТ: подбор по категориям и вакансиям, анонимные карточки, параметрическое тестирование и объяснимый скоринг. Достижения ПВН поддерживаются как локальные данные; реальный PVN-провайдер и ATS в окружении не настроены.
+Платформа обратного найма для ИТ: подбор по категориям и вакансиям, анонимные карточки, параметрическое тестирование и объяснимый скоринг.
+
+## Что измерено
+
+Четыре воспроизводимых прогона. Числа проверены на синтетике и размеченных парах, собранных командой; это инженерная проверка механик, не рыночное качество подбора.
+
+| Проверка | Результат | Команда |
+|---|---|---|
+| Подтверждённый профиль против заявленного | 84/84 пар: verified строго выше claimed, равных и проигрышей нет (до правки формулы проигрышей было 24 из 84) | `python -m scripts.validate` |
+| Ранжирование на размеченных парах | Precision@5 0.400, NDCG@5 1.000, MRR 1.000 при `hard-gate`; без него NDCG@5 0.693 и MRR 0.500 | `python -m scripts.validate_pairs` |
+| Психометрика item bank | Reliability 0.776 при 20 задачах, `separation` 1.861, различимы 2 грейд-полосы из 3 | `python -m scripts.calibrate_items` |
+| Тесты | 301 passed, 0 failed, 10 skipped | `python -m pytest tests -q` |
+
+Ключевой эффект — `hard-gate` по тиру: профиль без завершённого теста не обходит подтверждённый ни в одной из 84 пар, а NDCG@5 на размеченном наборе растёт с 0.693 до 1.000. Что именно осталось непроверенным — `docs/limitations.md`.
 
 ## Запуск
 
@@ -20,12 +33,13 @@ docker compose exec api python -m scripts.generate_synthetic
 - Описание эндпоинтов: `docs/api.md`
 - Сопроводительная документация (8 разделов ТЗ): `docs/README.md`
 - Демо-сценарий сквозного пути: `docs/demo-script.md`
+- Ограничения доказательной базы: `docs/limitations.md`
 
 Демо-данные для проверки: задайте `SEED_DEMO=1` в `.env` (или окружении) перед `docker compose up --build`. Сидирование идемпотентно: повторный старт ничего не дублирует. Без флага база пустая.
 
 ### Семантический поиск направлений (embeddings)
 
-Postgres работает на образе `pgvector/pgvector:pg16` с расширением `vector`. Домены и вакансии могут хранить embedding. В vacancy search релевантность объединяет lexical stack intersection (вес 0.3) и косинусную близость (вес 0.7), если вектор актуален; при недоступном провайдере используется lexical fallback. Это не означает, что качество семантического поиска подтверждено внешней выборкой.
+Postgres работает на образе `pgvector/pgvector:pg16` с расширением `vector`. Домены и вакансии могут хранить embedding. В vacancy search релевантность объединяет lexical stack intersection (вес 0.3) и косинусную близость (вес 0.7), если вектор актуален; при недоступном провайдере используется lexical fallback.
 
 Embedding-модель настраивается в `.env` и берётся из Cloud.ru Foundation Models (OpenAI-совместимый API):
 
@@ -79,7 +93,7 @@ cd frontend && npm ci && npm run dev
 .venv/bin/python -m pytest tests -q
 ```
 
-Последний прогон содержал 236 backend-тестов; отдельно 10 PostgreSQL/pgvector тестов прошли на Docker-стенде с rollback временных записей. Внешние интеграции и visual smoke не считаются подтверждёнными.
+Последний прогон: 301 passed, 0 failed, 10 skipped — из них 10 PostgreSQL/pgvector-тестов пропущены без `TEST_POSTGRES_URL` (см. `docs/limitations.md`).
 
 UI e2e (Playwright, поднимает docker-стек и сидирует):
 
@@ -93,7 +107,7 @@ bash scripts/e2e_ui.sh
 .venv/bin/python -m scripts.e2e_docker
 ```
 
-Валидация механик (проектный self-reported отчёт, не независимая проверка):
+Валидация механик (отчёт в `docs/validation-results.md`):
 
 ```
 .venv/bin/python -m scripts.validate
@@ -116,7 +130,9 @@ DATABASE_URL=postgresql+psycopg://syntax:syntax@localhost:5432/syntax alembic up
 | `scripts/seed.py` | банк концептов (40) и словарь контекстов генерации |
 | `scripts/generate_task_pool.py` | fallback-пул 240 предгенерированных задач |
 | `scripts/generate_synthetic.py` | 100 синтетических кандидатов, 20 вакансий для демо |
-| `scripts/validate.py` | процедура валидации §4.2 плана, отчёт в `docs/` |
+| `scripts/validate.py` | проверка пар verified/claimed и hard-gate, отчёт в `docs/validation-results.md` |
+| `scripts/validate_pairs.py` | Precision@5/NDCG@5/MRR на размеченном наборе пар, отчёт в `docs/pairs-results.md` |
+| `scripts/calibrate_items.py` | IRT-калибровка item bank, отчёт в `docs/psychometrics-results.md` |
 | `scripts/e2e_docker.py` | сквозной e2e-прогон против docker compose |
 | `scripts/e2e_ui.sh` | UI e2e (Playwright): полный сценарий ТЗ через браузер |
 | `scripts/build_docs_pdf.py` | сборка сопроводительной документации в PDF |
@@ -124,9 +140,7 @@ DATABASE_URL=postgresql+psycopg://syntax:syntax@localhost:5432/syntax alembic up
 
 ## Ограничения текущей поставки
 
-- Реальный PVN OIDC provider, реестр достижений и ATS endpoint не настроены; интеграционные пути не прошли live-проверку с внешними системами.
-- Antifraud-модерация работает локальными правилами и опциональной LLM-проверкой; она не является независимой гарантией безопасности вакансии.
-- Метрики из прежних validation-материалов являются self-reported и не должны подаваться как рыночный успех или независимое измерение качества.
+Данные синтетические, разметка командная, исходов найма нет; внешние контуры (PVN OIDC, реестр достижений, ATS, LLM-проверка, embedding-провайдер) покрыты mock-тестами, ветка pgvector не запускалась. Полный разбор — `docs/limitations.md`.
 
 ## Библиотеки и лицензии
 
