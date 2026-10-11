@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
@@ -40,6 +42,8 @@ def to_response(invitation: Invitation, reveal_contacts: bool) -> InvitationResp
         status=invitation.status,
         candidate_contacts=candidate.contacts if reveal_contacts else None,
         created_at=invitation.created_at.isoformat(),
+        viewed_at=invitation.viewed_at.isoformat() if invitation.viewed_at is not None else None,
+        responded_at=invitation.responded_at.isoformat() if invitation.responded_at is not None else None,
     )
 
 
@@ -163,6 +167,7 @@ def mark_viewed(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Приглашение не найдено")
     if invitation_transition_allowed(invitation.status, INVITATION_VIEWED):
         invitation.status = INVITATION_VIEWED
+        invitation.viewed_at = datetime.now(timezone.utc)
         db.commit()
         db.refresh(invitation)
     return to_response(invitation, reveal_contacts=True)
@@ -180,6 +185,9 @@ def accept_invitation(
     if not invitation_transition_allowed(invitation.status, INVITATION_ACCEPTED):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Переход из статуса {invitation.status} невозможен")
     invitation.status = INVITATION_ACCEPTED
+    if invitation.viewed_at is None:
+        invitation.viewed_at = datetime.now(timezone.utc)
+    invitation.responded_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(invitation)
     return to_response(invitation, reveal_contacts=True)
@@ -197,6 +205,9 @@ def reject_invitation(
     if not invitation_transition_allowed(invitation.status, INVITATION_REJECTED):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Переход из статуса {invitation.status} невозможен")
     invitation.status = INVITATION_REJECTED
+    if invitation.viewed_at is None:
+        invitation.viewed_at = datetime.now(timezone.utc)
+    invitation.responded_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(invitation)
     return to_response(invitation, reveal_contacts=False)

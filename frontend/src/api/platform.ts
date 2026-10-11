@@ -152,6 +152,9 @@ export interface Invitation {
   contact_method: string | null
   status: 'sent' | 'viewed' | 'accepted' | 'rejected' | 'withdrawn'
   candidate_contacts: Record<string, string> | null
+  created_at: string
+  viewed_at: string | null
+  responded_at: string | null
 }
 
 export interface CreateInvitationPayload {

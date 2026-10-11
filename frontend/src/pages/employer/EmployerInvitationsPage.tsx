@@ -9,6 +9,8 @@ import {
 import type { Invitation, UpdateInvitationPayload } from '../../api/platform'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { Modal } from '../../components/Modal'
+import { InvitationTimeline } from '../../components/InvitationTimeline'
+import { ContactReveal } from '../../components/ContactReveal'
 import { gradeLabel, specializationLabel } from '../../lib/format'
 import { statusPill } from '../../lib/statusPill'
 
@@ -28,24 +30,6 @@ interface EditFormState {
   salaryTo: string
   companyName: string
   contactMethod: string
-}
-
-const CONTACT_ICONS: Record<string, string> = {
-  telegram: 'send',
-  tg: 'send',
-  email: 'alternate_email',
-  mail: 'alternate_email',
-  phone: 'call',
-  телефон: 'call',
-  почта: 'alternate_email',
-}
-
-function contactIcon(key: string): string {
-  const normalized = key.toLowerCase()
-  for (const [prefix, icon] of Object.entries(CONTACT_ICONS)) {
-    if (normalized.includes(prefix)) return icon
-  }
-  return 'contact_page'
 }
 
 function formatSalary(from: number, to: number): string {
@@ -298,15 +282,9 @@ export function EmployerInvitationsPage() {
                     <div className="font-sans text-body">{invitation.message}</div>
                   </div>
                 ) : null}
+                <InvitationTimeline invitation={invitation} />
                 {contacts.length > 0 ? (
-                  <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl bg-good/10 p-4 font-mono text-[13px]">
-                    {contacts.map(([key, value]) => (
-                      <span className="flex items-center gap-2 text-ink-secondary" key={`${invitation.id}-${key}`}>
-                        <span className="material-symbols-outlined text-[16px] text-good-ink">{contactIcon(key)}</span>
-                        {key}: <span className="font-semibold text-ink">{value}</span>
-                      </span>
-                    ))}
-                  </div>
+                  <ContactReveal companyName={invitation.company_name} contacts={Object.fromEntries(contacts)} />
                 ) : invitation.status !== 'rejected' && invitation.status !== 'withdrawn' ? (
                   <div className="flex items-center gap-2 rounded-xl bg-inset p-4 text-ink-secondary shadow-inset-sm">
                     <span className="material-symbols-outlined text-[18px] text-ink-muted">lock</span>

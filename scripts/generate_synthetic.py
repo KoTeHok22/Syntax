@@ -27,6 +27,7 @@ from backend.core.matching import (
     INVITATION_REJECTED,
     INVITATION_SENT,
     INVITATION_VIEWED,
+    INVITATION_WITHDRAWN,
 )
 
 DEMO_PASSWORD = "demo-password"
@@ -283,6 +284,14 @@ def create_demo_invitations(db: Session, rng: random.Random) -> int:
             continue
         employer = employers[index % len(employers)]
         salary_from, salary_to = SALARY_BY_GRADE[candidate.grade or "junior"]
+        status = INVITATION_STATUS_CYCLE[index % len(INVITATION_STATUS_CYCLE)]
+        created_at = datetime.now(timezone.utc) - timedelta(days=3)
+        viewed_at = None
+        responded_at = None
+        if status != INVITATION_SENT:
+            viewed_at = created_at + timedelta(hours=6)
+        if status in {INVITATION_ACCEPTED, INVITATION_REJECTED, INVITATION_WITHDRAWN}:
+            responded_at = created_at + timedelta(days=1)
         db.add(
             Invitation(
                 employer_profile_id=employer.id,
@@ -292,7 +301,10 @@ def create_demo_invitations(db: Session, rng: random.Random) -> int:
                 salary_to=salary_to,
                 company_name=employer.company_name,
                 contact_method=employer.contacts.get("hr", "hr@example.com") if employer.contacts else "hr@example.com",
-                status=INVITATION_STATUS_CYCLE[index % len(INVITATION_STATUS_CYCLE)],
+                status=status,
+                created_at=created_at,
+                viewed_at=viewed_at,
+                responded_at=responded_at,
             )
         )
         created += 1

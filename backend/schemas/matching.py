@@ -206,6 +206,8 @@ class InvitationResponse(BaseModel):
     status: str
     candidate_contacts: dict | None
     created_at: str
+    viewed_at: str | None = None
+    responded_at: str | None = None
 
 
 class VacancyCreate(BaseModel):

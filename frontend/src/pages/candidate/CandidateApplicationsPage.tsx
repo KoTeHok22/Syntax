@@ -10,6 +10,18 @@ const applicationStatusConfig: Record<Application['status'], { label: string; pi
   rejected: { label: 'Отклонён', pill: statusPill('neutral'), icon: 'cancel' },
 }
 
+const formatLabels: Record<string, string> = {
+  video: 'Видеозвонок',
+  onsite: 'Офис',
+  phone: 'Телефон',
+}
+
+const formatIcons: Record<string, string> = {
+  video: 'videocam',
+  onsite: 'location_on',
+  phone: 'call',
+}
+
 export function CandidateApplicationsPage() {
   const [applications, setApplications] = useState<Application[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -81,14 +93,35 @@ export function CandidateApplicationsPage() {
                   </span>
                 </div>
                 {application.interview_at ? (
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl bg-good/10 px-3 py-2 font-sans text-caption text-ink-secondary">
-                    <span className="flex items-center gap-1 font-mono text-[12px] font-bold text-good-ink">
-                      <span className="material-symbols-outlined text-[16px]">event_available</span>
-                      Интервью
+                  <div className="flex flex-col gap-2 rounded-xl bg-good/10 p-4">
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[18px] text-good-ink">event_available</span>
+                      <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-good-ink">Приглашение на интервью</span>
+                    </div>
+                    <span className="font-mono text-[15px] font-semibold text-ink">
+                      {new Date(application.interview_at).toLocaleString('ru-RU', { dateStyle: 'long', timeStyle: 'short' })}
+                      {application.interview_duration ? ` · ${application.interview_duration} мин` : ''}
                     </span>
-                    <span>{new Date(application.interview_at).toLocaleString('ru-RU', { dateStyle: 'long', timeStyle: 'short' })}</span>
-                    {application.interview_link ? <span className="break-all font-mono text-[12px]">{application.interview_link}</span> : null}
-                    {application.interview_address ? <span>{application.interview_address}</span> : null}
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-sans text-caption text-ink-secondary">
+                      {formatLabels[application.interview_format ?? ''] ? (
+                        <span className="flex items-center gap-1">
+                          <span className="material-symbols-outlined text-[15px] text-ink-muted">{formatIcons[application.interview_format ?? ''] ?? 'videocam'}</span>
+                          {formatLabels[application.interview_format ?? '']}
+                        </span>
+                      ) : null}
+                      {application.interview_address ? <span>{application.interview_address}</span> : null}
+                    </div>
+                    {application.interview_link ? (
+                      <a
+                        className="btn-primary w-fit py-2 text-[13px]"
+                        href={application.interview_link}
+                        rel="noreferrer"
+                        target="_blank"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">link</span>
+                        Перейти по ссылке
+                      </a>
+                    ) : null}
                   </div>
                 ) : null}
               </div>

@@ -8,6 +8,8 @@ import { fetchTestSessions } from '../../api/testing'
 import type { TestSession } from '../../api/testing'
 import { statusPill } from '../../lib/statusPill'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
+import { InvitationTimeline } from '../../components/InvitationTimeline'
+import { ContactReveal } from '../../components/ContactReveal'
 
 const invitationStatusConfig: Record<Invitation['status'], { label: string; pill: string; icon: string }> = {
   sent: { label: 'Новое', pill: statusPill('info'), icon: 'fiber_new' },
@@ -15,11 +17,6 @@ const invitationStatusConfig: Record<Invitation['status'], { label: string; pill
   accepted: { label: 'Принято', pill: statusPill('success'), icon: 'check_circle' },
   rejected: { label: 'Отклонено', pill: statusPill('neutral'), icon: 'cancel' },
   withdrawn: { label: 'Отозвано', pill: statusPill('neutral'), icon: 'undo' },
-}
-
-const contactIcons: Record<string, string> = {
-  email: 'mail',
-  phone: 'call',
 }
 
 function formatSalary(from: number, to: number): string {
@@ -194,16 +191,10 @@ export function CandidateInvitationsPage() {
                       </div>
                     </div>
 
+                    <InvitationTimeline invitation={invitation} />
+
                     {invitation.status === 'accepted' && invitation.candidate_contacts !== null ? (
-                      <div className="flex flex-col gap-3 rounded-xl bg-good/10 p-4">
-                        <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-good-ink">Контакты переданы компании</span>
-                        {Object.entries(invitation.candidate_contacts).map(([key, value]) => (
-                          <div className="flex items-center gap-2" key={key}>
-                            <span className="material-symbols-outlined text-[18px] text-good-ink">{contactIcons[key] ?? 'alternate_email'}</span>
-                            <span className="font-mono text-[13px] text-ink">{value}</span>
-                          </div>
-                        ))}
-                      </div>
+                      <ContactReveal companyName={invitation.company_name} contacts={invitation.candidate_contacts} />
                     ) : null}
 
                     {actionError !== undefined ? (
