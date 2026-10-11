@@ -38,6 +38,7 @@ export function CandidateVacanciesPage() {
   const [applyError, setApplyError] = useState<string | null>(null)
   const [visibleCount, setVisibleCount] = useState(9)
   const [applySuccess, setApplySuccess] = useState<string | null>(null)
+  const [offerVacancy, setOfferVacancy] = useState<Vacancy | null>(null)
   const [appliedVacancyIds, setAppliedVacancyIds] = useState<Set<number>>(new Set())
   const [candidateGrade, setCandidateGrade] = useState<string | null>(null)
   const [candidateSpecialization, setCandidateSpecialization] = useState<string | null>(null)
@@ -92,6 +93,7 @@ export function CandidateVacanciesPage() {
       setMessage('')
       setAppliedVacancyIds((previous) => new Set(previous).add(applied.id))
       setApplySuccess(`Отклик на «${applied.title}» отправлен`)
+      setOfferVacancy(applied)
     } catch (exception) {
       if (exception instanceof ApiError) setApplyError(exception.detail)
       else setApplyError('Не удалось связаться с сервером')
@@ -279,6 +281,42 @@ export function CandidateVacanciesPage() {
                 {isApplying ? 'Отправка…' : 'Отправить отклик'}
               </button>
               <button className="btn-ghost" onClick={() => setSelectedVacancy(null)} type="button">Отмена</button>
+            </div>
+          </div>
+        </Modal>
+      ) : null}
+
+      {offerVacancy !== null ? (
+        <Modal labelledBy="offer-tasks-title" onClose={() => setOfferVacancy(null)} open panelClassName="relative w-full max-w-md overflow-y-auto rounded-panel bg-raised p-6 shadow-raised-lg">
+          <div className="flex flex-col gap-4">
+            <div className="flex items-start gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-pvn-blue/10">
+                <span className="material-symbols-outlined text-[22px] text-pvn-blue">task_alt</span>
+              </span>
+              <div className="flex flex-col gap-1">
+                <span className="font-mono text-h3 font-bold text-ink" id="offer-tasks-title">Усилить отклик заданиями?</span>
+                <span className="font-sans text-caption text-ink-secondary">
+                  У работодателя есть проверочные задания по вакансии «{offerVacancy.title}». Верные ответы заметны в отклике.
+                </span>
+              </div>
+            </div>
+            <p className="font-sans text-caption text-ink-secondary">
+              Задания проходят под прокторингом: в полноэкранном режиме, без переключения вкладок. Выход из полноэкранного режима завершает попытку, неотвеченные вопросы засчитываются как неверные. Одна попытка.
+            </p>
+            <div className="flex items-center justify-end gap-3">
+              <button className="btn-ghost" onClick={() => setOfferVacancy(null)} type="button">Позже</button>
+              <button
+                className="btn-primary"
+                onClick={() => {
+                  const target = offerVacancy
+                  setOfferVacancy(null)
+                  if (target !== null) navigate(`/candidate/regular-tasks?vacancy=${target.id}`)
+                }}
+                type="button"
+              >
+                Пройти задания
+                <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+              </button>
             </div>
           </div>
         </Modal>
