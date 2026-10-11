@@ -13,6 +13,7 @@ import { LogoCropEditor } from '../../components/LogoCropEditor'
 import { Toast } from '../../components/Toast'
 import { DEFAULT_LOGO_CROP } from '../../lib/logoCrop'
 import type { LogoCrop } from '../../lib/logoCrop'
+import { workFormatLabel } from '../../components/workFormat'
 
 const AVATAR_ALLOWED_MIME = ['image/png', 'image/jpeg', 'image/webp']
 const AVATAR_MAX_BYTES = 512 * 1024
@@ -30,6 +31,13 @@ const specializations = ['backend', 'frontend', 'data', 'devops', 'mobile', 'qa'
 const grades = ['junior', 'middle', 'senior']
 const gradeRank: Record<string, number> = { junior: 0, middle: 1, senior: 2 }
 
+const workFormatOptions = [
+  { value: '', label: 'Не указан' },
+  { value: 'remote', label: 'Удалённо' },
+  { value: 'office', label: 'Офис' },
+  { value: 'hybrid', label: 'Гибрид' },
+]
+
 const specializationLabels: Record<string, string> = {
   backend: 'Backend',
   frontend: 'Frontend',
@@ -46,6 +54,8 @@ interface ProfileForm {
   stack: string
   years_of_experience: string
   soft_skills: string
+  city: string
+  work_format: string
   email: string
   phone: string
   pvn_id: string
@@ -58,6 +68,8 @@ function formFromProfile(profile: CandidateProfile, fallbackEmail = ''): Profile
     stack: profile.stack.join(', '),
     years_of_experience: profile.years_of_experience === null ? '' : String(profile.years_of_experience),
     soft_skills: profile.soft_skills.join(', '),
+    city: profile.city ?? '',
+    work_format: profile.work_format ?? '',
     email: profile.contacts?.email ?? fallbackEmail,
     phone: profile.contacts?.phone ?? '',
     pvn_id: profile.pvn_id ?? '',
@@ -176,6 +188,8 @@ export function CandidateProfilePage() {
         stack: form.stack.split(',').map((item) => item.trim()).filter((item) => item !== ''),
         years_of_experience: years,
         soft_skills: form.soft_skills.split(',').map((item) => item.trim()).filter((item) => item !== ''),
+        city: form.city.trim(),
+        work_format: form.work_format,
         contacts: Object.keys(contacts).length > 0 ? contacts : null,
         pvn_id: form.pvn_id.trim(),
         avatar_data_url: avatarDataUrl ?? '',
@@ -477,6 +491,30 @@ export function CandidateProfilePage() {
                     </select>
                   </div>
                   <div className="flex flex-col gap-1.5">
+                    <label className="label-cap" htmlFor="profile-city">Город</label>
+                    <input
+                      className="field"
+                      id="profile-city"
+                      onChange={(event) => setForm({ ...form, city: event.target.value })}
+                      placeholder="Москва"
+                      type="text"
+                      value={form.city}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="label-cap" htmlFor="profile-work-format">Формат работы</label>
+                    <select
+                      className="field cursor-pointer"
+                      id="profile-work-format"
+                      onChange={(event) => setForm({ ...form, work_format: event.target.value })}
+                      value={form.work_format}
+                    >
+                      {workFormatOptions.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
                     <label className="label-cap" htmlFor="profile-stack">Стек (через запятую)</label>
                     <input className="field" id="profile-stack" onChange={(event) => setForm({ ...form, stack: event.target.value })} placeholder="Python, PostgreSQL, Kafka" type="text" value={form.stack} />
                   </div>
@@ -556,8 +594,12 @@ export function CandidateProfilePage() {
                     <span className="font-mono text-[13px] font-semibold text-ink">{formatExperience(profile.years_of_experience)}</span>
                   </div>
                   <div className="flex items-center justify-between gap-3 border-b border-ink/10 py-2.5">
-                    <span className="label-cap">Формат</span>
-                    <span className="font-mono text-[13px] font-semibold text-ink">Гибрид / удалённо</span>
+                    <span className="label-cap">Город</span>
+                    <span className="font-mono text-[13px] font-semibold text-ink">{profile.city.trim() === '' ? '—' : profile.city}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 border-b border-ink/10 py-2.5">
+                    <span className="label-cap">Формат работы</span>
+                    <span className="font-mono text-[13px] font-semibold text-ink">{workFormatLabel(profile.work_format) || '—'}</span>
                   </div>
                   <div className="flex items-center justify-between gap-3 border-b border-ink/10 py-2.5">
                     <span className="label-cap">Email</span>
@@ -825,7 +867,9 @@ export function CandidateProfilePage() {
               <div className="flex flex-col gap-2">
                 <span className="label-cap">Опыт</span>
                 <span className="font-mono text-[13px] font-semibold text-ink">{formatExperience(profile.years_of_experience)}</span>
-                <span className="font-mono text-[13px] font-semibold text-ink">Гибрид / удалённо</span>
+                <span className="font-mono text-[13px] font-semibold text-ink">
+                  {[profile.city.trim(), workFormatLabel(profile.work_format)].filter((part) => part.length > 0).join(' · ') || 'Город и формат не указаны'}
+                </span>
               </div>
               <div className="flex flex-col gap-2.5 rounded-xl bg-inset p-3 shadow-inset-sm">
                 <span className="flex items-center gap-2 font-mono text-[12px] font-bold text-ink">

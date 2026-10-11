@@ -17,10 +17,22 @@ export interface PvnAchievement {
   score: number
 }
 
+export type WorkFormat = '' | 'remote' | 'office' | 'hybrid'
+
+export type City = string
+
+export interface StackProofItem {
+  stack: string
+  domain: string | null
+  proof: 'verified' | 'claimed'
+}
+
 export interface CandidateCard {
   candidate_profile_id: number
   grade: string
   specialization: string
+  city: string
+  work_format: string
   stack: string[]
   score: number
   score_breakdown: Record<string, ScoreComponent>
@@ -106,6 +118,8 @@ export interface CardFilters {
   has_pvn?: boolean
   verified_only?: boolean
   min_score?: number
+  city?: City
+  work_format?: WorkFormat
   skip?: number
   limit?: number
   q?: string
@@ -117,6 +131,8 @@ function buildFiltersQuery(filters: CardFilters): URLSearchParams {
   if (filters.has_pvn !== undefined) query.set('has_pvn', String(filters.has_pvn))
   if (filters.verified_only !== undefined) query.set('verified_only', String(filters.verified_only))
   if (filters.min_score !== undefined) query.set('min_score', String(filters.min_score))
+  if (filters.city) query.set('city', filters.city)
+  if (filters.work_format) query.set('work_format', filters.work_format)
   if (filters.q) query.set('q', filters.q)
   if (filters.skip !== undefined) query.set('skip', String(filters.skip))
   if (filters.limit !== undefined) query.set('limit', String(filters.limit))
@@ -139,6 +155,45 @@ export function searchCandidates(
   if (filters.vacancy_id !== undefined) query.set('vacancy_id', String(filters.vacancy_id))
   const suffix = query.size > 0 ? `?${query.toString()}` : ''
   return get(`/employer/search${suffix}`, signal === undefined ? {} : { signal })
+}
+
+export interface CandidatePublicProfileAchievement {
+  type: string
+  level: string
+  date?: string
+}
+
+export interface CandidatePublicProfile {
+  candidate_profile_id: number
+  grade: string | null
+  specialization: string
+  stack_proof: StackProofItem[]
+  years_of_experience: number
+  soft_skills: string[]
+  city: string
+  work_format: string
+  proof_tier: string
+  is_verified: boolean
+  score: number
+  score_breakdown: Record<string, ScoreComponent>
+  match_relevance: number | null
+  pvn_achievements: CandidatePublicProfileAchievement[]
+}
+
+export const candidatePublicProfilePath = (
+  candidateProfileId: number,
+  vacancyId?: number,
+): string => {
+  const query = vacancyId === undefined ? '' : `?vacancy_id=${vacancyId}`
+  return `/employer/candidates/${candidateProfileId}${query}`
+}
+
+export function fetchCandidatePublicProfile(
+  candidateProfileId: number,
+  vacancyId?: number,
+  signal?: AbortSignal,
+): Promise<CandidatePublicProfile> {
+  return get(candidatePublicProfilePath(candidateProfileId, vacancyId), signal === undefined ? {} : { signal })
 }
 
 export interface Invitation {

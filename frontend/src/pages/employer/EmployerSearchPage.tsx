@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { ApiError } from '../../api/client'
 import { createInvitation, fetchDomains, fetchEmployerProfile, fetchMyVacancies, searchCandidates, anonymousCandidateId } from '../../api/platform'
-import type { CandidateCard as CandidateCardData, Domain, Vacancy } from '../../api/platform'
+import type { CandidateCard as CandidateCardData, Domain, Vacancy, WorkFormat } from '../../api/platform'
 import { CandidateCard } from '../../components/CandidateCard'
 import { CandidateProofPanel } from '../../components/CandidateProofPanel'
 import { CardColumns } from '../../components/CardColumns'
@@ -18,6 +19,13 @@ const GRADES = [
   { value: 'junior', label: 'Junior' },
   { value: 'middle', label: 'Middle' },
   { value: 'senior', label: 'Senior' },
+]
+
+const WORK_FORMATS: { value: '' | Exclude<WorkFormat, ''>; label: string }[] = [
+  { value: '', label: 'Любой' },
+  { value: 'remote', label: 'Удалённо' },
+  { value: 'office', label: 'Офис' },
+  { value: 'hybrid', label: 'Гибрид' },
 ]
 
 const MIN_SCORE_OPTIONS = [0, 50, 60, 70, 80]
@@ -63,6 +71,7 @@ function SkeletonCard() {
 }
 
 export function EmployerSearchPage() {
+  const navigate = useNavigate()
   const [vacancies, setVacancies] = useState<Vacancy[]>([])
   const [vacancyId, setVacancyId] = useState<number | undefined>()
   const [vacanciesError, setVacanciesError] = useState<string | null>(null)
@@ -75,6 +84,9 @@ export function EmployerSearchPage() {
   const [domainSuggestions, setDomainSuggestions] = useState<Domain[]>([])
   const [isDomainFocused, setIsDomainFocused] = useState(false)
   const [grade, setGrade] = useState('')
+  const [cityInput, setCityInput] = useState('')
+  const [city, setCity] = useState('')
+  const [workFormat, setWorkFormat] = useState<'' | Exclude<WorkFormat, ''>>('')
   const [hasPvn, setHasPvn] = useState(false)
   const [verifiedOnly, setVerifiedOnly] = useState(false)
   const [minScore, setMinScore] = useState(0)
@@ -94,6 +106,11 @@ export function EmployerSearchPage() {
   const [debouncedStackInput, setDebouncedStackInput] = useState('')
   const [debouncedDomainInput, setDebouncedDomainInput] = useState('')
   const [reloadToken, setReloadToken] = useState(0)
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setCity(cityInput.trim()), DEBOUNCE_MS)
+    return () => window.clearTimeout(timer)
+  }, [cityInput])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -157,8 +174,8 @@ export function EmployerSearchPage() {
   const stackKey = liveStackFilters.join(',')
   const domainSlug = selectedDomain?.slug ?? ''
   const domainQuery = selectedDomain === null ? domainInput.trim() : ''
-  const requestKey = `${vacancyId ?? ''}|${stackKey}|${domainSlug}|${domainQuery}|${grade}|${hasPvn}|${verifiedOnly}|${minScore}`
-  const filtersRef = useRef({ requestKey, vacancyId, stackKey, domainSlug, domainQuery, grade, hasPvn, verifiedOnly, minScore })
+  const requestKey = `${vacancyId ?? ''}|${stackKey}|${domainSlug}|${domainQuery}|${grade}|${city}|${workFormat}|${hasPvn}|${verifiedOnly}|${minScore}`
+  const filtersRef = useRef({ requestKey, vacancyId, stackKey, domainSlug, domainQuery, grade, city, workFormat, hasPvn, verifiedOnly, minScore })
   const searchGenerationRef = useRef(0)
 
   const loadCards = useCallback(async (skip: number, signal: AbortSignal) => {
@@ -180,6 +197,8 @@ export function EmployerSearchPage() {
           specialization: current.domainSlug !== '' ? current.domainSlug : undefined,
           q: current.domainSlug === '' && current.domainQuery !== '' ? current.domainQuery : undefined,
           grade: current.grade !== '' ? current.grade : undefined,
+          city: current.city !== '' ? current.city : undefined,
+          work_format: current.workFormat !== '' ? current.workFormat : undefined,
           has_pvn: current.hasPvn ? true : undefined,
           verified_only: current.verifiedOnly ? true : undefined,
           min_score: current.minScore > 0 ? current.minScore : undefined,
@@ -204,8 +223,8 @@ export function EmployerSearchPage() {
   }, [])
 
   useEffect(() => {
-    filtersRef.current = { requestKey, vacancyId, stackKey, domainSlug, domainQuery, grade, hasPvn, verifiedOnly, minScore }
-  }, [requestKey, vacancyId, stackKey, domainSlug, domainQuery, grade, hasPvn, verifiedOnly, minScore])
+    filtersRef.current = { requestKey, vacancyId, stackKey, domainSlug, domainQuery, grade, city, workFormat, hasPvn, verifiedOnly, minScore }
+  }, [requestKey, vacancyId, stackKey, domainSlug, domainQuery, grade, city, workFormat, hasPvn, verifiedOnly, minScore])
 
   useEffect(() => {
     searchGenerationRef.current += 1
@@ -236,6 +255,13 @@ export function EmployerSearchPage() {
       const label = GRADES.find((item) => item.value === grade)?.label ?? grade
       chips.push({ label, onRemove: () => setGrade('') })
     }
+    if (city !== '') {
+      chips.push({ label: `Город: ${city}`, onRemove: () => { setCityInput(''); setCity('') } })
+    }
+    if (workFormat !== '') {
+      const label = WORK_FORMATS.find((item) => item.value === workFormat)?.label ?? workFormat
+      chips.push({ label: `Формат: ${label}`, onRemove: () => setWorkFormat('') })
+    }
     stackFilters.forEach((technology) => {
       chips.push({
         label: technology,
@@ -246,7 +272,7 @@ export function EmployerSearchPage() {
     if (verifiedOnly) chips.push({ label: 'Только с ПВН ID', onRemove: () => setVerifiedOnly(false) })
     if (minScore > 0) chips.push({ label: `Балл от ${minScore}`, onRemove: () => setMinScore(0) })
     return chips
-  }, [vacancyId, vacancies, selectedDomain, domainQuery, grade, stackFilters, hasPvn, verifiedOnly, minScore])
+  }, [vacancyId, vacancies, selectedDomain, domainQuery, grade, city, workFormat, stackFilters, hasPvn, verifiedOnly, minScore])
 
   const applyStackInput = () => {
     const parsed = stackInput
@@ -266,6 +292,9 @@ export function EmployerSearchPage() {
     setDomainInput('')
     setDomainSuggestions([])
     setGrade('')
+    setCityInput('')
+    setCity('')
+    setWorkFormat('')
     setHasPvn(false)
     setMinScore(0)
     setStackInput('')
@@ -425,7 +454,7 @@ export function EmployerSearchPage() {
             Добавить
           </button>
         </form>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           <div className="relative flex flex-col gap-1.5">
             <label className="label-cap" htmlFor="search-domain">Направление</label>
             <input
@@ -474,6 +503,31 @@ export function EmployerSearchPage() {
               value={grade}
             >
               {GRADES.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="label-cap" htmlFor="search-city">Город</label>
+            <input
+              aria-label="Город кандидата"
+              className="field py-2.5"
+              id="search-city"
+              onChange={(event) => setCityInput(event.target.value)}
+              placeholder="Москва"
+              type="search"
+              value={cityInput}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="label-cap" htmlFor="search-work-format">Формат работы</label>
+            <select
+              className="field cursor-pointer py-2.5"
+              id="search-work-format"
+              onChange={(event) => setWorkFormat(event.target.value as '' | Exclude<WorkFormat, ''>)}
+              value={workFormat}
+            >
+              {WORK_FORMATS.map((option) => (
                 <option key={option.value} value={option.value}>{option.label}</option>
               ))}
             </select>
@@ -602,6 +656,18 @@ export function EmployerSearchPage() {
               <div className="flex flex-col gap-3">
                 <CandidateProofPanel card={card} />
                 <CandidateCard card={card} onInvite={openInvitationModal} relevanceLabel={vacancyId !== undefined ? 'Совпадение с вакансией' : 'Совпадение с фильтрами'} />
+                <button
+                  className="btn-ghost py-2 text-[13px]"
+                  onClick={() => navigate(
+                    vacancyId !== undefined
+                      ? `/employer/candidates/${card.candidate_profile_id}?vacancy_id=${vacancyId}`
+                      : `/employer/candidates/${card.candidate_profile_id}`,
+                  )}
+                  type="button"
+                >
+                  <span className="material-symbols-outlined text-[18px]">badge</span>
+                  Подробный профиль
+                </button>
               </div>
             )}
           />

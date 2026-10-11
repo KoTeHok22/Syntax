@@ -6,6 +6,7 @@ import { NotFoundPage } from './pages/NotFoundPage'
 import { ConfirmEmailPage } from './pages/ConfirmEmailPage'
 import { MatchPage } from './pages/employer/MatchPage'
 import { EmployerSearchPage } from './pages/employer/EmployerSearchPage'
+import { CandidatePublicProfilePage } from './pages/employer/CandidatePublicProfilePage'
 import { EmployerInvitationsPage } from './pages/employer/EmployerInvitationsPage'
 import { EmployerVacanciesPage } from './pages/employer/EmployerVacanciesPage'
 import { EmployerApplicationsPage } from './pages/employer/EmployerApplicationsPage'
@@ -56,6 +57,14 @@ export function App() {
             element={
               <RequireRole role="employer">
                 <EmployerSearchPage />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="/employer/candidates/:id"
+            element={
+              <RequireRole role="employer">
+                <CandidatePublicProfilePage />
               </RequireRole>
             }
           />

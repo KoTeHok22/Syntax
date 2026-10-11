@@ -8,7 +8,7 @@ import {
   searchCandidates,
   anonymousCandidateId,
 } from '../../api/platform'
-import type { CandidateCard as CandidateCardData, Domain, EmployerProfile } from '../../api/platform'
+import type { CandidateCard as CandidateCardData, Domain, EmployerProfile, WorkFormat } from '../../api/platform'
 import { CandidateCard } from '../../components/CandidateCard'
 import { CandidateProofPanel } from '../../components/CandidateProofPanel'
 import { CardColumns } from '../../components/CardColumns'
@@ -19,6 +19,13 @@ const PAGE_LIMIT = 20
 const CATEGORY_PAGE_SIZE = 12
 
 const MIN_SCORE_OPTIONS = [0, 50, 60, 70, 80]
+
+const WORK_FORMATS: { value: '' | Exclude<WorkFormat, ''>; label: string }[] = [
+  { value: '', label: 'Любой' },
+  { value: 'remote', label: 'Удалённо' },
+  { value: 'office', label: 'Офис' },
+  { value: 'hybrid', label: 'Гибрид' },
+]
 
 const SORT_OPTIONS = [
   { value: 'relevance', label: 'Сначала релевантные' },
@@ -77,6 +84,9 @@ export function MatchPage() {
   const [hasMore, setHasMore] = useState(false)
   const [stackInput, setStackInput] = useState('')
   const [stackFilters, setStackFilters] = useState<string[]>([])
+  const [cityInput, setCityInput] = useState('')
+  const [city, setCity] = useState('')
+  const [workFormat, setWorkFormat] = useState<'' | Exclude<WorkFormat, ''>>('')
   const [hasPvn, setHasPvn] = useState(false)
   const [minScore, setMinScore] = useState<number>(0)
   const [sortBy, setSortBy] = useState<SortMode>('relevance')
@@ -120,6 +130,11 @@ export function MatchPage() {
     return () => window.clearTimeout(timer)
   }, [categorySearch, loadCategories])
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => setCity(cityInput.trim()), 400)
+    return () => window.clearTimeout(timer)
+  }, [cityInput])
+
 
   const loadCards = useCallback(
     async (skip: number) => {
@@ -132,6 +147,8 @@ export function MatchPage() {
           specialization: activeDomain.slug,
           q: activeDomain.title,
           stack: stackFilters.length > 0 ? stackFilters : undefined,
+          city: city !== '' ? city : undefined,
+          work_format: workFormat !== '' ? workFormat : undefined,
           has_pvn: hasPvn ? true : undefined,
           min_score: minScore > 0 ? minScore : undefined,
           skip,
@@ -147,7 +164,7 @@ export function MatchPage() {
         setIsLoadingMore(false)
       }
     },
-    [activeDomain, stackFilters, hasPvn, minScore],
+    [activeDomain, stackFilters, city, workFormat, hasPvn, minScore],
   )
 
   const stackKey = stackFilters.join(',')
@@ -161,7 +178,7 @@ export function MatchPage() {
       await loadCards(0)
     })()
     return () => controller.abort()
-  }, [activeSlug, stackKey, hasPvn, minScore, loadCards])
+  }, [activeSlug, stackKey, city, workFormat, hasPvn, minScore, loadCards])
 
   useEffect(() => {
     fetchEmployerProfile()
@@ -423,6 +440,31 @@ export function MatchPage() {
                   </select>
                 </label>
                 <label className="flex items-center gap-2">
+                  <span className="font-mono text-[11px] uppercase tracking-wider text-ink-muted">Город</span>
+                  <input
+                    aria-label="Город кандидата"
+                    className="w-32 rounded-lg bg-base px-2 py-1.5 font-mono text-[12px] font-medium text-ink shadow-raised-sm focus:outline-none"
+                    onChange={(event) => setCityInput(event.target.value)}
+                    placeholder="Москва"
+                    type="search"
+                    value={cityInput}
+                  />
+                </label>
+                <label className="flex items-center gap-2">
+                  <span className="font-mono text-[11px] uppercase tracking-wider text-ink-muted">Формат</span>
+                  <select
+                    className="rounded-lg bg-base px-2 py-1.5 font-mono text-[12px] font-medium text-ink shadow-raised-sm focus:outline-none"
+                    onChange={(event) => setWorkFormat(event.target.value as '' | Exclude<WorkFormat, ''>)}
+                    value={workFormat}
+                  >
+                    {WORK_FORMATS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex items-center gap-2">
                   <span className="font-mono text-[11px] uppercase tracking-wider text-ink-muted">Сортировка</span>
                   <select
                     className="rounded-lg bg-base px-2 py-1.5 font-mono text-[12px] font-medium text-ink shadow-raised-sm focus:outline-none"
@@ -468,6 +510,9 @@ export function MatchPage() {
                     setStackFilters([])
                     setHasPvn(false)
                     setMinScore(0)
+                    setCityInput('')
+                    setCity('')
+                    setWorkFormat('')
                   }}
                   type="button"
                 >
@@ -484,6 +529,14 @@ export function MatchPage() {
                     <div className="flex flex-col gap-3">
                       <CandidateProofPanel card={card} />
                       <CandidateCard card={card} onInvite={openInvitationModal} relevanceLabel="Совпадение с направлением" />
+                      <button
+                        className="btn-ghost py-2 text-[13px]"
+                        onClick={() => navigate(`/employer/candidates/${card.candidate_profile_id}`)}
+                        type="button"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">badge</span>
+                        Подробный профиль
+                      </button>
                     </div>
                   )}
                 />

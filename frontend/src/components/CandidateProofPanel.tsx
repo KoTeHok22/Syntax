@@ -1,4 +1,6 @@
-import type { CandidateCard as CandidateCardData } from '../api/platform'
+import type { CandidateCard as CandidateCardData, StackProofItem } from '../api/platform'
+import { StackProofBadges } from './StackProofBadges'
+import { workFormatLabel } from './workFormat'
 
 function stackReason(card: CandidateCardData): string | null {
   const overlap = card.match_breakdown?.overlap
@@ -47,20 +49,29 @@ function buildReasons(card: CandidateCardData): string[] {
 
 interface CandidateProofPanelProps {
   card: CandidateCardData
+  stackProof?: StackProofItem[]
+  city?: string | null
+  workFormat?: string | null
 }
 
-export function CandidateProofPanel({ card }: CandidateProofPanelProps) {
+export function CandidateProofPanel({ card, stackProof, city, workFormat }: CandidateProofPanelProps) {
   const verified = card.is_verified || card.proof_tier === 'verified'
   const reasons = buildReasons(card)
+  const location = [city ?? card.city, workFormatLabel(workFormat ?? card.work_format)]
+    .filter((part) => part.length > 0)
+    .join(' · ')
   return (
     <div className="flex flex-col gap-3 rounded-panel border border-ink/5 bg-raised p-5 shadow-raised">
+      {location.length > 0 ? (
+        <span className="font-sans text-[12px] text-ink-secondary">{location}</span>
+      ) : null}
       <div className="flex flex-wrap items-center gap-2">
         <span
           className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 font-sans text-[12px] font-semibold ${
             verified ? 'bg-good/15 text-good-ink' : 'bg-warn/15 text-warn-ink'
           }`}
         >
-          <span className="material-symbols-outlined text-[15px] leading-none">
+          <span aria-hidden="true" className="material-symbols-outlined text-[15px] leading-none">
             {verified ? 'verified_user' : 'help'}
           </span>
           {verified ? 'Подтверждён тестом' : 'Не подтверждён тестом'}
@@ -71,6 +82,15 @@ export function CandidateProofPanel({ card }: CandidateProofPanelProps) {
             : 'Навыки указаны самим кандидатом, тест ещё не пройден'}
         </span>
       </div>
+
+      {stackProof !== undefined && stackProof.length > 0 ? (
+        <div className="flex flex-col gap-1.5">
+          <span className="font-mono text-[11px] uppercase tracking-wider text-ink-secondary">
+            Проверка стека
+          </span>
+          <StackProofBadges items={stackProof} />
+        </div>
+      ) : null}
 
       {reasons.length > 0 ? (
         <div className="flex flex-col gap-1.5">

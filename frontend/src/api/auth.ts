@@ -50,6 +50,8 @@ export interface CandidateProfile {
   stack: string[]
   years_of_experience: number | null
   soft_skills: string[]
+  city: string
+  work_format: string
   contacts: Record<string, string> | null
   is_visible: boolean
   pvn_id: string | null
